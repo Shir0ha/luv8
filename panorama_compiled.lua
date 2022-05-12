@@ -8,6 +8,21 @@ do
     local _obj_0 = require('hooks')
     jmp, proc_bind = _obj_0.jmp, _obj_0.proc_bind
 end
+local rawget
+rawget = function(tbl, key)
+    local mtb = getmetatable(tbl)
+    setmetatable(tbl, nil)
+    local res = tbl[key]
+    setmetatable(tbl, mtb)
+    return res
+end
+local rawset
+rawset = function(tbl, key, value)
+    local mtb = getmetatable(tbl)
+    setmetatable(tbl, nil)
+    tbl[key] = value
+    return setmetatable(tbl, mtb)
+end
 local __thiscall
 __thiscall = function(func, this)
     return function(...)
@@ -48,6 +63,9 @@ follow_call = function(ptr)
     end
 end
 local nullptr = new("void*")
+local panorama = {
+    panelIDs = { }
+}
 local vtable
 do
     local _class_0
@@ -119,12 +137,15 @@ local nativeFindChildTraverse = vtable_thunk(40, "void*(__thiscall*)(void*,const
 local nativeGetJavaScriptContextParent = vtable_thunk(218, "void*(__thiscall*)(void*)")
 local nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 00 85 C0 75 1B"))), UIEngine:getInstance())
 local v8_dll = DllImport("v8.dll")
-local Local
+local Local, MaybeLocal, Value, Object, Array, Isolate, Context, HandleScope = nil
 do
     local _class_0
     local _base_0 = {
+        getInstance = function(self)
+            return self.this
+        end,
         __call = function(self)
-            return cast("void**", self.this)[0]
+            return Value(self.this[0])
         end
     }
     _base_0.__index = _base_0
@@ -145,10 +166,12 @@ do
     _base_0.__class = _class_0
     Local = _class_0
 end
-local MaybeLocal
 do
     local _class_0
     local _base_0 = {
+        getInstance = function(self)
+            return self.this
+        end,
         toLocalChecked = function(self)
             if not (self.this == nullptr) then
                 return Local(self.this)
@@ -158,7 +181,7 @@ do
     _base_0.__index = _base_0
     _class_0 = setmetatable({
         __init = function(self, val)
-            self.this = val
+            self.this = cast("void**", val)
         end,
         __base = _base_0,
         __name = "MaybeLocal"
@@ -173,7 +196,6 @@ do
     _base_0.__class = _class_0
     MaybeLocal = _class_0
 end
-local Value
 do
     local _class_0
     local _base_0 = {
@@ -224,7 +246,10 @@ do
             return s
         end,
         toObject = function(self)
-            return MaybeLocal(v8_dll:get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(self.this, new("int[1]")))
+            return Object(MaybeLocal(v8_dll:get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(self.this, new("int[1]"))):toLocalChecked()())
+        end,
+        toLocal = function(self)
+            return Local(new("uintptr_t[1]", self.this))
         end
     }
     _base_0.__index = _base_0
@@ -245,9 +270,9 @@ do
     _base_0.__class = _class_0
     Value = _class_0
 end
-local Object
 do
     local _class_0
+    local _parent_0 = Value
     local _base_0 = {
         get = function(self, key)
             return MaybeLocal(v8_dll:get("?Get@Object@v8@@QAE?AV?$Local@VValue@v8@@@2@V32@@Z", "void*(__thiscall*)(void*,void*,void*)")(self.this, new("int[1]"), key))
@@ -266,14 +291,26 @@ do
         end
     }
     _base_0.__index = _base_0
+    setmetatable(_base_0, _parent_0.__base)
     _class_0 = setmetatable({
         __init = function(self, val)
             self.this = val
         end,
         __base = _base_0,
-        __name = "Object"
+        __name = "Object",
+        __parent = _parent_0
     }, {
-        __index = _base_0,
+        __index = function(cls, name)
+            local val = rawget(_base_0, name)
+            if val == nil then
+                local parent = rawget(cls, "__parent")
+                if parent then
+                    return parent[name]
+                end
+            else
+                return val
+            end
+        end,
         __call = function(cls, ...)
             local _self_0 = setmetatable({}, _base_0)
             cls.__init(_self_0, ...)
@@ -281,25 +318,40 @@ do
         end
     })
     _base_0.__class = _class_0
+    if _parent_0.__inherited then
+        _parent_0.__inherited(_parent_0, _class_0)
+    end
     Object = _class_0
 end
-local Array
 do
     local _class_0
+    local _parent_0 = Object
     local _base_0 = {
         length = function(self)
             return v8_dll:get("?Length@Array@v8@@QBEIXZ", "uint32_t(__thiscall*)(void*)")(self.this)
         end
     }
     _base_0.__index = _base_0
+    setmetatable(_base_0, _parent_0.__base)
     _class_0 = setmetatable({
         __init = function(self, val)
             self.this = val
         end,
         __base = _base_0,
-        __name = "Array"
+        __name = "Array",
+        __parent = _parent_0
     }, {
-        __index = _base_0,
+        __index = function(cls, name)
+            local val = rawget(_base_0, name)
+            if val == nil then
+                local parent = rawget(cls, "__parent")
+                if parent then
+                    return parent[name]
+                end
+            else
+                return val
+            end
+        end,
         __call = function(cls, ...)
             local _self_0 = setmetatable({}, _base_0)
             cls.__init(_self_0, ...)
@@ -307,9 +359,228 @@ do
         end
     })
     _base_0.__class = _class_0
+    if _parent_0.__inherited then
+        _parent_0.__inherited(_parent_0, _class_0)
+    end
     Array = _class_0
 end
-local Isolate
+local Primitive
+do
+    local _class_0
+    local _parent_0 = Value
+    local _base_0 = {
+        getValue = function(self)
+            return self.this
+        end,
+        toString = function(self)
+            return self.this:getValue():stringValue()
+        end
+    }
+    _base_0.__index = _base_0
+    setmetatable(_base_0, _parent_0.__base)
+    _class_0 = setmetatable({
+        __init = function(self, val)
+            self.this = val
+        end,
+        __base = _base_0,
+        __name = "Primitive",
+        __parent = _parent_0
+    }, {
+        __index = function(cls, name)
+            local val = rawget(_base_0, name)
+            if val == nil then
+                local parent = rawget(cls, "__parent")
+                if parent then
+                    return parent[name]
+                end
+            else
+                return val
+            end
+        end,
+        __call = function(cls, ...)
+            local _self_0 = setmetatable({}, _base_0)
+            cls.__init(_self_0, ...)
+            return _self_0
+        end
+    })
+    _base_0.__class = _class_0
+    if _parent_0.__inherited then
+        _parent_0.__inherited(_parent_0, _class_0)
+    end
+    Primitive = _class_0
+end
+local Null
+do
+    local _class_0
+    local _parent_0 = Value
+    local _base_0 = { }
+    _base_0.__index = _base_0
+    setmetatable(_base_0, _parent_0.__base)
+    _class_0 = setmetatable({
+        __init = function(self, isolate)
+            self.this = Value(cast("uintptr_t", isolate) + 0x48)
+        end,
+        __base = _base_0,
+        __name = "Null",
+        __parent = _parent_0
+    }, {
+        __index = function(cls, name)
+            local val = rawget(_base_0, name)
+            if val == nil then
+                local parent = rawget(cls, "__parent")
+                if parent then
+                    return parent[name]
+                end
+            else
+                return val
+            end
+        end,
+        __call = function(cls, ...)
+            local _self_0 = setmetatable({}, _base_0)
+            cls.__init(_self_0, ...)
+            return _self_0
+        end
+    })
+    _base_0.__class = _class_0
+    if _parent_0.__inherited then
+        _parent_0.__inherited(_parent_0, _class_0)
+    end
+    Null = _class_0
+end
+local Boolean
+do
+    local _class_0
+    local _parent_0 = Value
+    local _base_0 = { }
+    _base_0.__index = _base_0
+    setmetatable(_base_0, _parent_0.__base)
+    _class_0 = setmetatable({
+        __init = function(self, isolate, bool)
+            self.this = Value(cast("uintptr_t", isolate) + ((function()
+                if bool then
+                    return 0x4C
+                else
+                    return 0x50
+                end
+            end)()))
+        end,
+        __base = _base_0,
+        __name = "Boolean",
+        __parent = _parent_0
+    }, {
+        __index = function(cls, name)
+            local val = rawget(_base_0, name)
+            if val == nil then
+                local parent = rawget(cls, "__parent")
+                if parent then
+                    return parent[name]
+                end
+            else
+                return val
+            end
+        end,
+        __call = function(cls, ...)
+            local _self_0 = setmetatable({}, _base_0)
+            cls.__init(_self_0, ...)
+            return _self_0
+        end
+    })
+    _base_0.__class = _class_0
+    if _parent_0.__inherited then
+        _parent_0.__inherited(_parent_0, _class_0)
+    end
+    Boolean = _class_0
+end
+local Number
+do
+    local _class_0
+    local _parent_0 = Value
+    local _base_0 = {
+        getValue = function(self)
+            return self.this:numberValue()
+        end,
+        getInstance = function(self)
+            return self.this
+        end
+    }
+    _base_0.__index = _base_0
+    setmetatable(_base_0, _parent_0.__base)
+    _class_0 = setmetatable({
+        __init = function(self, isolate, val)
+            self.this = MaybeLocal(v8_dll:get("?New@Number@v8@@SA?AV?$Local@VNumber@v8@@@2@PAVIsolate@2@N@Z", "void*(__cdecl*)(void*,void*,double)")(new("int[1]"), isolate, tonumber(val))):toLocalChecked()()
+        end,
+        __base = _base_0,
+        __name = "Number",
+        __parent = _parent_0
+    }, {
+        __index = function(cls, name)
+            local val = rawget(_base_0, name)
+            if val == nil then
+                local parent = rawget(cls, "__parent")
+                if parent then
+                    return parent[name]
+                end
+            else
+                return val
+            end
+        end,
+        __call = function(cls, ...)
+            local _self_0 = setmetatable({}, _base_0)
+            cls.__init(_self_0, ...)
+            return _self_0
+        end
+    })
+    _base_0.__class = _class_0
+    if _parent_0.__inherited then
+        _parent_0.__inherited(_parent_0, _class_0)
+    end
+    Number = _class_0
+end
+local String
+do
+    local _class_0
+    local _parent_0 = Value
+    local _base_0 = {
+        getValue = function(self)
+            return self.this:stringValue()
+        end,
+        getInstance = function(self)
+            return self.this
+        end
+    }
+    _base_0.__index = _base_0
+    setmetatable(_base_0, _parent_0.__base)
+    _class_0 = setmetatable({
+        __init = function(self, isolate, val)
+            self.this = MaybeLocal(v8_dll:get("?NewFromUtf8@String@v8@@SA?AV?$MaybeLocal@VString@v8@@@2@PAVIsolate@2@PBDW4NewStringType@2@H@Z", "void*(__cdecl*)(void*,void*,const char*,int,int)")(new("int[1]"), isolate, val, 0, #val)):toLocalChecked()()
+        end,
+        __base = _base_0,
+        __name = "String",
+        __parent = _parent_0
+    }, {
+        __index = function(cls, name)
+            local val = rawget(_base_0, name)
+            if val == nil then
+                local parent = rawget(cls, "__parent")
+                if parent then
+                    return parent[name]
+                end
+            else
+                return val
+            end
+        end,
+        __call = function(cls, ...)
+            local _self_0 = setmetatable({}, _base_0)
+            cls.__init(_self_0, ...)
+            return _self_0
+        end
+    })
+    _base_0.__class = _class_0
+    if _parent_0.__inherited then
+        _parent_0.__inherited(_parent_0, _class_0)
+    end
+    String = _class_0
+end
 do
     local _class_0
     local _base_0 = {
@@ -318,6 +589,9 @@ do
         end,
         exit = function(self)
             return v8_dll:get("?Exit@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(self.this)
+        end,
+        getCurrentContext = function(self)
+            return v8_dll:get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(nativeGetIsolate(), new("int[1]"))
         end,
         getInstance = function(self)
             return self.this
@@ -341,7 +615,6 @@ do
     _base_0.__class = _class_0
     Isolate = _class_0
 end
-local Context
 do
     local _class_0
     local _base_0 = {
@@ -350,6 +623,9 @@ do
         end,
         exit = function(self)
             return v8_dll:get("?Exit@Context@v8@@QAEXXZ", "void(__thiscall*)(void*)")(self.this)
+        end,
+        global = function(self)
+            return MaybeLocal(v8_dll:get("?Global@Context@v8@@QAE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(self.this, new("int[1]")))
         end
     }
     _base_0.__index = _base_0
@@ -370,7 +646,6 @@ do
     _base_0.__class = _class_0
     Context = _class_0
 end
-local HandleScope
 do
     local _class_0
     local _base_0 = {
@@ -387,7 +662,12 @@ do
             local isolate = Isolate(nativeGetIsolate())
             isolate:enter()
             self:enter()
-            local ctx = nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0]
+            local ctx
+            if panel then
+                ctx = nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0]
+            else
+                ctx = Context(Isolate():getCurrentContext():toLocalChecked()()):global():getInstance()
+            end
             ctx = Context((function()
                 if ctx ~= nullptr then
                     return self:createHandle(ctx[0])
@@ -421,25 +701,13 @@ do
     _base_0.__class = _class_0
     HandleScope = _class_0
 end
-local test = HandleScope()
-local testFunc
-testFunc = function()
-    local str = MaybeLocal(v8_dll:get("?NewFromUtf8@String@v8@@SA?AV?$MaybeLocal@VString@v8@@@2@PAVIsolate@2@PBDW4NewStringType@2@H@Z", "void*(__cdecl*)(void*,void*,const char*,int,int)")(new("int[1]"), nativeGetIsolate(), "hello world", 0, 11))
-    return print(Value(str:toLocalChecked()()):stringValue())
-end
-
-panorama = {panelIDs = {}}
---#pragma region panorama_internal
-local PanelInfo_t = typeof([[
-    struct {
+local PanelInfo_t = typeof([[    struct {
         char* pad1[0x4];
         void*         m_pPanel;
         void* unk1;
     }
 ]])
--- making my life so much easier
-local CUtlVector_Constructor_t = typeof([[
-    struct {
+local CUtlVector_Constructor_t = typeof([[    struct {
         struct {
             $ *m_pMemory;
             int m_nAllocationCount;
@@ -449,44 +717,40 @@ local CUtlVector_Constructor_t = typeof([[
         $ *m_pElements;
     }
 ]], PanelInfo_t, PanelInfo_t)
-
-ffi.metatype(CUtlVector_Constructor_t, { __index = { -- making my life so much easier
-    Count = function(cdata)
-        return cdata.m_Memory.m_nAllocationCount
-    end,
-    Element = function(cdata, i)
-        return cast(typeof("$&", PanelInfo_t), cdata.m_Memory.m_pMemory[i])
-    end,
-    RemoveAll = function(this)
-        this = nil
-        this = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
-        this.m_Size = 0
-    end
-}, __ipairs = function(panelArray)
-    local current, size = 0, panelArray:Count()
-    return function()
-        current = current + 1
-        local pPanel = panelArray:Element(current - 1).m_pPanel
-        if current <= size and nativeIsValidPanelPointer(pPanel) then
-            return current, pPanel
+ffi.metatype(CUtlVector_Constructor_t, {
+    __index = {
+        Count = function(cdata)
+            return cdata.m_Memory.m_nAllocationCount
+        end,
+        Element = function(cdata, i)
+            return cast(typeof("$&", PanelInfo_t), cdata.m_Memory.m_pMemory[i])
+        end,
+        RemoveAll = function(this)
+            this = nil
+            this = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
+            this.m_Size = 0
+        end
+    },
+    __ipairs = function(panelArray)
+        local current, size = 0, panelArray:Count()
+        return function()
+            current = current + 1
+            local pPanel = panelArray:Element(current - 1).m_pPanel
+            if current <= size and nativeIsValidPanelPointer(pPanel) then
+                return current, pPanel
+            end
         end
     end
-end }
-)
-
+})
 local panelList = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
-
-local panelArrayOffset = cast("unsigned int*", cast("uintptr_t**", UIEngine:getInstance())[0][36] + 21)[0] -- ecx + 0x0F0 find it in IsValidPanelPointer
-local panelArray = cast(panelList, cast("uintptr_t", UIEngine:getInstance()) + panelArrayOffset) -- once and for all
-
+local panelArrayOffset = cast("unsigned int*", cast("uintptr_t**", UIEngine:getInstance())[0][36] + 21)[0]
+local panelArray = cast(panelList, cast("uintptr_t", UIEngine:getInstance()) + panelArrayOffset)
 panorama.GetPanel = function(panelName)
     local cachedPanel = panorama.panelIDs[panelName]
     if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and ffi.string(nativeGetID(cachedPanel)) == panelName then
-        return cachedPanel -- will not improve performance for CSGOJsRegistration due to it being the first one in the array LMAO
+        return cachedPanel
     end
-    -- reset cache
-    panorama.panelIDs = {}
-
+    panorama.panelIDs = { }
     local pPanel = nullptr
     for i, v in ipairs(panelArray) do
         local curPanelName = ffi.string(nativeGetID(v))
@@ -499,8 +763,15 @@ panorama.GetPanel = function(panelName)
         end
     end
     if pPanel == nullptr then
-        return error("Failed to get target panel " .. tostring(panelName))
+        error("Failed to get target panel " .. tostring(panelName))
     end
     return pPanel
 end
+local test = HandleScope()
+local testFunc
+testFunc = function()
+    local isolate = nativeGetIsolate()
+    return print(String(isolate, "hello world"):getValue())
+end
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
+return 0

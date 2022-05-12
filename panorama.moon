@@ -2,6 +2,17 @@ import cast, typeof, new from ffi
 import jmp, proc_bind from require 'hooks'
 
 --#pragma region helper_functions
+rawget = (tbl, key) ->
+    mtb = getmetatable(tbl)
+    setmetatable(tbl, nil)
+    res = tbl[key]
+    setmetatable(tbl, mtb)
+    res
+rawset = (tbl, key, value) ->
+    mtb = getmetatable(tbl)
+    setmetatable(tbl, nil)
+    tbl[key] = value
+    setmetatable(tbl, mtb)
 __thiscall = (func, this) -> (...) -> func(this, ...)
 table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->
@@ -20,6 +31,9 @@ follow_call = (ptr) ->
             cast("uint32_t**", cast("const char*", ptr) + 2)[0][0]
 --#pragma endregion helper_functions
 nullptr = new("void*")
+panorama = {
+    panelIDs: {}
+}
 
 class vtable
     new: (ptr) => @this = cast("void***", ptr)
@@ -49,13 +63,16 @@ nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", fol
 
 --#pragma region native_v8_functions
 v8_dll = DllImport("v8.dll")
+Local, MaybeLocal, Value, Object, Array, Isolate, Context, HandleScope = nil
 
 class Local
     new: (val) => @this = val
-    __call: => cast("void**", @this)[0]
+    getInstance: => @this
+    __call: => Value(@this[0])
 
 class MaybeLocal
-    new: (val) => @this = val
+    new: (val) => @this = cast("void**", val)
+    getInstance: => @this
     toLocalChecked: => Local(@this) unless @this == nullptr
 
 class Value
@@ -80,9 +97,11 @@ class Value
         v8_dll\get("??1Utf8Value@String@v8@@QAE@XZ", "void(__thiscall*)(void*)")(strBuf)
         s
     toObject: =>
-        MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))
+        Object(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!)
+    toLocal: =>
+        Local(new("uintptr_t[1]", @this))
 
-class Object
+class Object extends Value
     new: (val) => @this = val
     get: (key) =>
         MaybeLocal(v8_dll\get("?Get@Object@v8@@QAE?AV?$Local@VValue@v8@@@2@V32@@Z", "void*(__thiscall*)(void*,void*,void*)")(@this, new("int[1]"), key))
@@ -93,20 +112,45 @@ class Object
         MaybeLocal(v8_dll\get("?CallAsFunction@Object@v8@@QAE?AV?$Local@VValue@v8@@@2@V32@HQAV32@@Z", "void*(__thiscall*)(void*,void*,void*,int,void*)")(@this, new("int[1]"), argc, argv))
     getIdentityHash: => v8_dll\get("?GetIdentityHash@Object@v8@@QAEHXZ", "int(__thiscall*)(void*)")(@this)
 
-class Array
+class Array extends Object
     new: (val) => @this = val
     length: => v8_dll\get("?Length@Array@v8@@QBEIXZ", "uint32_t(__thiscall*)(void*)")(@this)
+
+class Primitive extends Value
+    new: (val) => @this = val
+    getValue: => @this
+    toString: => @this\getValue!\stringValue!
+
+class Null extends Value
+    new: (isolate) => @this = Value(cast("uintptr_t", isolate) + 0x48)
+
+class Boolean extends Value
+    new: (isolate, bool) => @this = Value(cast("uintptr_t", isolate) + (if bool then 0x4C else 0x50))
+
+class Number extends Value
+    new: (isolate, val) =>
+        @this = MaybeLocal(v8_dll\get("?New@Number@v8@@SA?AV?$Local@VNumber@v8@@@2@PAVIsolate@2@N@Z", "void*(__cdecl*)(void*,void*,double)")(new("int[1]"), isolate, tonumber(val)))\toLocalChecked!!
+    getValue: => @this\numberValue!
+    getInstance: => @this
+
+class String extends Value
+    new: (isolate, val) => @this = MaybeLocal(v8_dll\get("?NewFromUtf8@String@v8@@SA?AV?$MaybeLocal@VString@v8@@@2@PAVIsolate@2@PBDW4NewStringType@2@H@Z", "void*(__cdecl*)(void*,void*,const char*,int,int)")(new("int[1]"), isolate, val, 0, #val))\toLocalChecked!!
+    getValue: => @this\stringValue!
+    getInstance: => @this
 
 class Isolate
     new: (val) => @this = val
     enter: => v8_dll\get("?Enter@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
     exit: => v8_dll\get("?Exit@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
+    getCurrentContext: => v8_dll\get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(nativeGetIsolate!, new("int[1]"))
     getInstance: => @this
 
 class Context
     new: (val) => @this = val
     enter: => v8_dll\get("?Enter@Context@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
     exit: => v8_dll\get("?Exit@Context@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
+    global: =>
+        MaybeLocal(v8_dll\get("?Global@Context@v8@@QAE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))
 
 class HandleScope
     new: => @this = new("char[0xC]")
@@ -117,7 +161,7 @@ class HandleScope
         isolate = Isolate(nativeGetIsolate!)
         isolate\enter!
         @enter!
-        ctx = nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0]
+        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInstance!
         ctx = Context(if ctx ~= nullptr then @createHandle(ctx[0]) else 0)
         ctx\enter!
         val = func!
@@ -126,9 +170,71 @@ class HandleScope
         isolate\exit!
         val
 
+PanelInfo_t = typeof([[
+    struct {
+        char* pad1[0x4];
+        void*         m_pPanel;
+        void* unk1;
+    }
+]])
+
+CUtlVector_Constructor_t = typeof([[
+    struct {
+        struct {
+            $ *m_pMemory;
+            int m_nAllocationCount;
+            int m_nGrowSize;
+        } m_Memory;
+        int m_Size;
+        $ *m_pElements;
+    }
+]], PanelInfo_t, PanelInfo_t)
+
+ffi.metatype(CUtlVector_Constructor_t, {
+    __index: {
+        Count: (cdata) -> cdata.m_Memory.m_nAllocationCount,
+        Element: (cdata, i) -> cast(typeof("$&", PanelInfo_t), cdata.m_Memory.m_pMemory[i])
+        RemoveAll: (this) ->
+            this = nil
+            this = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
+            this.m_Size = 0
+            return
+    },
+    __ipairs: (panelArray) ->
+        current, size = 0, panelArray\Count!
+        ->
+            current = current + 1
+            pPanel = panelArray\Element(current - 1).m_pPanel
+            if current <= size and nativeIsValidPanelPointer(pPanel) then
+                current, pPanel
+})
+
+panelList = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
+panelArrayOffset = cast("unsigned int*", cast("uintptr_t**", UIEngine\getInstance!)[0][36] + 21)[0]
+panelArray = cast(panelList, cast("uintptr_t", UIEngine\getInstance!) + panelArrayOffset)
+
+panorama.GetPanel = (panelName) ->
+    cachedPanel = panorama.panelIDs[panelName]
+    if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and ffi.string(nativeGetID(cachedPanel)) == panelName then
+        return cachedPanel
+    panorama.panelIDs = {}
+
+    pPanel = nullptr
+    for i, v in ipairs(panelArray) do
+        curPanelName = ffi.string(nativeGetID(v))
+        if curPanelName ~= "" then
+            panorama.panelIDs[curPanelName] = v
+            if curPanelName == panelName then
+                pPanel = v
+                break
+    if pPanel == nullptr then
+        error("Failed to get target panel " .. tostring(panelName))
+    pPanel
+
+
 test = HandleScope()
 testFunc = ->
-    str = MaybeLocal(v8_dll\get("?NewFromUtf8@String@v8@@SA?AV?$MaybeLocal@VString@v8@@@2@PAVIsolate@2@PBDW4NewStringType@2@H@Z", "void*(__cdecl*)(void*,void*,const char*,int,int)")(new("int[1]"), nativeGetIsolate!, "hello world", 0, 11))
-    print(Value(str\toLocalChecked!!)\stringValue!)
+    isolate = nativeGetIsolate!
+    print(String(isolate, "hello world")\getValue!)
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
 return 0
