@@ -192,19 +192,19 @@ CUtlVector_Constructor_t = typeof([[
 
 ffi.metatype(CUtlVector_Constructor_t, {
     __index: {
-        Count: (cdata) -> cdata.m_Memory.m_nAllocationCount,
-        Element: (cdata, i) -> cast(typeof("$&", PanelInfo_t), cdata.m_Memory.m_pMemory[i])
-        RemoveAll: (this) ->
-            this = nil
-            this = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
-            this.m_Size = 0
+        Count: => @m_Memory.m_nAllocationCount,
+        Element: (i) => cast(typeof("$&", PanelInfo_t), @m_Memory.m_pMemory[i])
+        RemoveAll: =>
+            @ = nil
+            @ = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
+            @m_Size = 0
             return
     },
-    __ipairs: (panelArray) ->
-        current, size = 0, panelArray\Count!
+    __ipairs: =>
+        current, size = 0, @\Count!
         ->
             current = current + 1
-            pPanel = panelArray\Element(current - 1).m_pPanel
+            pPanel = @\Element(current - 1).m_pPanel
             if current <= size and nativeIsValidPanelPointer(pPanel) then
                 current, pPanel
 })
