@@ -76,7 +76,7 @@ class MaybeLocal
     toLocalChecked: => Local(@this) unless @this == nullptr
 
 class Value
-    new: (val) => @this = val
+    new: (val) => @this = cast("void*", val)
     isUndefined: => v8_dll\get("?IsUndefined@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isNull: => v8_dll\get("?IsNull@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isBoolean: => v8_dll\get("?IsBoolean@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
@@ -121,10 +121,10 @@ class Primitive extends Value
     getValue: => @this
     toString: => @this\getValue!\stringValue!
 
-class Null extends Value
+class Null extends Primitive
     new: (isolate) => @this = Value(cast("uintptr_t", isolate) + 0x48)
 
-class Boolean extends Value
+class Boolean extends Primitive
     new: (isolate, bool) => @this = Value(cast("uintptr_t", isolate) + (if bool then 0x4C else 0x50))
 
 class Number extends Value
