@@ -188,7 +188,7 @@ class Script
         isolate\enter!
         handleScope\enter!
         ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInstance!
-        ctx = Context(if ctx ~= nullptr then @createHandle(ctx[0]) else 0)
+        ctx = Context(if ctx ~= nullptr then handleScope\createHandle(ctx[0]) else 0)
         ctx\enter!
         source = String(isolate, str)
         scriptOrigin = new "void*[6]"
