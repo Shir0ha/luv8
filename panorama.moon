@@ -1,7 +1,11 @@
+local *
+
 import cast, typeof, new from ffi
 import jmp, proc_bind from require 'hooks'
 
 --#pragma region helper_functions
+safe_error = (msg) ->
+    error(msg) -- Will automatically call shutdown function to make sure nothing goes wrong. to be implemented.
 rawget = (tbl, key) ->
     mtb = getmetatable(tbl)
     setmetatable(tbl, nil)
@@ -16,7 +20,7 @@ rawset = (tbl, key, value) ->
 __thiscall = (func, this) -> (...) -> func(this, ...)
 table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->
-    addr = cast("void***", utils.find_interface(module, interface)) or error(interface .. " is nil.")
+    addr = cast("void***", utils.find_interface(module, interface)) or safe_error(interface .. " is nil.")
     __thiscall(cast(typedef, addr[0][index]), addr)
 vtable_thunk = (index, typedef) -> (instance, ...) ->
     assert(instance)
@@ -63,7 +67,6 @@ nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", fol
 
 --#pragma region native_v8_functions
 v8_dll = DllImport("v8.dll")
-Local, MaybeLocal, Value, Object, Array, Isolate, Context, HandleScope = nil
 
 class Local
     new: (val) => @this = val
@@ -228,13 +231,21 @@ panorama.GetPanel = (panelName) ->
                 pPanel = v
                 break
     if pPanel == nullptr then
-        error("Failed to get target panel " .. tostring(panelName))
+        safe_error("Failed to get target panel " .. tostring(panelName))
     pPanel
 
+panorama.RunScript= (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pathToXMLContext="panorama/layout/base.xml") ->
+    if not nativeIsValidPanelPointer(panel) then safe_error("Invalid panel")
+    nativeRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
 test = HandleScope()
 testFunc = ->
     isolate = nativeGetIsolate!
     print(String(isolate, "hello world")\getValue!)
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
+
+panorama.RunScript([[
+    $.Msg("hello again");
+]])
+
 return 0

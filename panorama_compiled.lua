@@ -1,14 +1,15 @@
-local cast, typeof, new
+local cast, typeof, new, jmp, proc_bind, safe_error, rawget, rawset, __thiscall, table_copy, vtable_bind, vtable_thunk, follow_call, nullptr, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, v8_dll, Local, MaybeLocal, Value, Object, Array, Primitive, Null, Boolean, Number, String, Isolate, Context, HandleScope, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray, test, testFunc
 do
     local _obj_0 = ffi
     cast, typeof, new = _obj_0.cast, _obj_0.typeof, _obj_0.new
 end
-local jmp, proc_bind
 do
     local _obj_0 = require('hooks')
     jmp, proc_bind = _obj_0.jmp, _obj_0.proc_bind
 end
-local rawget
+safe_error = function(msg)
+    return error(msg)
+end
 rawget = function(tbl, key)
     local mtb = getmetatable(tbl)
     setmetatable(tbl, nil)
@@ -16,20 +17,17 @@ rawget = function(tbl, key)
     setmetatable(tbl, mtb)
     return res
 end
-local rawset
 rawset = function(tbl, key, value)
     local mtb = getmetatable(tbl)
     setmetatable(tbl, nil)
     tbl[key] = value
     return setmetatable(tbl, mtb)
 end
-local __thiscall
 __thiscall = function(func, this)
     return function(...)
         return func(this, ...)
     end
 end
-local table_copy
 table_copy = function(t)
     local _tbl_0 = { }
     for k, v in pairs(t) do
@@ -37,12 +35,10 @@ table_copy = function(t)
     end
     return _tbl_0
 end
-local vtable_bind
 vtable_bind = function(module, interface, index, typedef)
-    local addr = cast("void***", utils.find_interface(module, interface)) or error(interface .. " is nil.")
+    local addr = cast("void***", utils.find_interface(module, interface)) or safe_error(interface .. " is nil.")
     return __thiscall(cast(typedef, addr[0][index]), addr)
 end
-local vtable_thunk
 vtable_thunk = function(index, typedef)
     return function(instance, ...)
         assert(instance)
@@ -50,7 +46,6 @@ vtable_thunk = function(index, typedef)
         return __thiscall(cast(typedef, addr[0][index]), addr)(...)
     end
 end
-local follow_call
 follow_call = function(ptr)
     local insn = cast("uint8_t*", ptr)
     local _exp_0 = insn[0]
@@ -62,11 +57,10 @@ follow_call = function(ptr)
         end
     end
 end
-local nullptr = new("void*")
-local panorama = {
+nullptr = new("void*")
+panorama = {
     panelIDs = { }
 }
-local vtable
 do
     local _class_0
     local _base_0 = {
@@ -95,7 +89,6 @@ do
     _base_0.__class = _class_0
     vtable = _class_0
 end
-local DllImport
 do
     local _class_0
     local _base_0 = {
@@ -125,19 +118,18 @@ do
     _base_0.__class = _class_0
     DllImport = _class_0
 end
-local UIEngine = vtable(vtable_bind("panorama.dll", "PanoramaUIEngine001", 11, "void*(__thiscall*)(void*)")())
-local nativeIsValidPanelPointer = UIEngine:get(36, "bool(__thiscall*)(void*,void const*)")
-local nativeGetLastDispatchedEventTargetPanel = UIEngine:get(56, "void*(__thiscall*)(void*)")
-local nativeRunScript = UIEngine:get(113, "int(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
-local nativeGetV8GlobalContext = UIEngine:get(123, "void*(__thiscall*)(void*)")
-local nativeGetIsolate = UIEngine:get(129, "void*(__thiscall*)(void*)")
-local nativeGetParent = vtable_thunk(25, "void*(__thiscall*)(void*)")
-local nativeGetID = vtable_thunk(9, "const char*(__thiscall*)(void*)")
-local nativeFindChildTraverse = vtable_thunk(40, "void*(__thiscall*)(void*,const char*)")
-local nativeGetJavaScriptContextParent = vtable_thunk(218, "void*(__thiscall*)(void*)")
-local nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 00 85 C0 75 1B"))), UIEngine:getInstance())
-local v8_dll = DllImport("v8.dll")
-local Local, MaybeLocal, Value, Object, Array, Isolate, Context, HandleScope = nil
+UIEngine = vtable(vtable_bind("panorama.dll", "PanoramaUIEngine001", 11, "void*(__thiscall*)(void*)")())
+nativeIsValidPanelPointer = UIEngine:get(36, "bool(__thiscall*)(void*,void const*)")
+nativeGetLastDispatchedEventTargetPanel = UIEngine:get(56, "void*(__thiscall*)(void*)")
+nativeRunScript = UIEngine:get(113, "int(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
+nativeGetV8GlobalContext = UIEngine:get(123, "void*(__thiscall*)(void*)")
+nativeGetIsolate = UIEngine:get(129, "void*(__thiscall*)(void*)")
+nativeGetParent = vtable_thunk(25, "void*(__thiscall*)(void*)")
+nativeGetID = vtable_thunk(9, "const char*(__thiscall*)(void*)")
+nativeFindChildTraverse = vtable_thunk(40, "void*(__thiscall*)(void*,const char*)")
+nativeGetJavaScriptContextParent = vtable_thunk(218, "void*(__thiscall*)(void*)")
+nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 00 85 C0 75 1B"))), UIEngine:getInstance())
+v8_dll = DllImport("v8.dll")
 do
     local _class_0
     local _base_0 = {
@@ -255,7 +247,7 @@ do
     _base_0.__index = _base_0
     _class_0 = setmetatable({
         __init = function(self, val)
-            self.this = val
+            self.this = cast("void*", val)
         end,
         __base = _base_0,
         __name = "Value"
@@ -364,7 +356,6 @@ do
     end
     Array = _class_0
 end
-local Primitive
 do
     local _class_0
     local _parent_0 = Value
@@ -409,10 +400,9 @@ do
     end
     Primitive = _class_0
 end
-local Null
 do
     local _class_0
-    local _parent_0 = Value
+    local _parent_0 = Primitive
     local _base_0 = { }
     _base_0.__index = _base_0
     setmetatable(_base_0, _parent_0.__base)
@@ -447,10 +437,9 @@ do
     end
     Null = _class_0
 end
-local Boolean
 do
     local _class_0
-    local _parent_0 = Value
+    local _parent_0 = Primitive
     local _base_0 = { }
     _base_0.__index = _base_0
     setmetatable(_base_0, _parent_0.__base)
@@ -491,7 +480,6 @@ do
     end
     Boolean = _class_0
 end
-local Number
 do
     local _class_0
     local _parent_0 = Value
@@ -536,7 +524,6 @@ do
     end
     Number = _class_0
 end
-local String
 do
     local _class_0
     local _parent_0 = Value
@@ -701,13 +688,13 @@ do
     _base_0.__class = _class_0
     HandleScope = _class_0
 end
-local PanelInfo_t = typeof([[    struct {
+PanelInfo_t = typeof([[    struct {
         char* pad1[0x4];
         void*         m_pPanel;
         void* unk1;
     }
 ]])
-local CUtlVector_Constructor_t = typeof([[    struct {
+CUtlVector_Constructor_t = typeof([[    struct {
         struct {
             $ *m_pMemory;
             int m_nAllocationCount;
@@ -719,32 +706,32 @@ local CUtlVector_Constructor_t = typeof([[    struct {
 ]], PanelInfo_t, PanelInfo_t)
 ffi.metatype(CUtlVector_Constructor_t, {
     __index = {
-        Count = function(cdata)
-            return cdata.m_Memory.m_nAllocationCount
+        Count = function(self)
+            return self.m_Memory.m_nAllocationCount
         end,
-        Element = function(cdata, i)
-            return cast(typeof("$&", PanelInfo_t), cdata.m_Memory.m_pMemory[i])
+        Element = function(self, i)
+            return cast(typeof("$&", PanelInfo_t), self.m_Memory.m_pMemory[i])
         end,
-        RemoveAll = function(this)
-            this = nil
-            this = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
-            this.m_Size = 0
+        RemoveAll = function(self)
+            self = nil
+            self = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
+            self.m_Size = 0
         end
     },
-    __ipairs = function(panelArray)
-        local current, size = 0, panelArray:Count()
+    __ipairs = function(self)
+        local current, size = 0, self:Count()
         return function()
             current = current + 1
-            local pPanel = panelArray:Element(current - 1).m_pPanel
+            local pPanel = self:Element(current - 1).m_pPanel
             if current <= size and nativeIsValidPanelPointer(pPanel) then
                 return current, pPanel
             end
         end
     end
 })
-local panelList = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
-local panelArrayOffset = cast("unsigned int*", cast("uintptr_t**", UIEngine:getInstance())[0][36] + 21)[0]
-local panelArray = cast(panelList, cast("uintptr_t", UIEngine:getInstance()) + panelArrayOffset)
+panelList = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
+panelArrayOffset = cast("unsigned int*", cast("uintptr_t**", UIEngine:getInstance())[0][36] + 21)[0]
+panelArray = cast(panelList, cast("uintptr_t", UIEngine:getInstance()) + panelArrayOffset)
 panorama.GetPanel = function(panelName)
     local cachedPanel = panorama.panelIDs[panelName]
     if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and ffi.string(nativeGetID(cachedPanel)) == panelName then
@@ -763,15 +750,28 @@ panorama.GetPanel = function(panelName)
         end
     end
     if pPanel == nullptr then
-        error("Failed to get target panel " .. tostring(panelName))
+        safe_error("Failed to get target panel " .. tostring(panelName))
     end
     return pPanel
 end
-local test = HandleScope()
-local testFunc
+panorama.RunScript = function(jsCode, panel, pathToXMLContext)
+    if panel == nil then
+        panel = panorama.GetPanel("CSGOJsRegistration")
+    end
+    if pathToXMLContext == nil then
+        pathToXMLContext = "panorama/layout/base.xml"
+    end
+    if not nativeIsValidPanelPointer(panel) then
+        safe_error("Invalid panel")
+    end
+    return nativeRunScript(panel, jsCode, pathToXMLContext, 8, 10, false)
+end
+test = HandleScope()
 testFunc = function()
     local isolate = nativeGetIsolate()
     return print(String(isolate, "hello world"):getValue())
 end
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
+panorama.RunScript([[    $.Msg("hello again");
+]])
 return 0
