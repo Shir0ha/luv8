@@ -55,7 +55,8 @@ class DllImport
 UIEngine = vtable(vtable_bind("panorama.dll", "PanoramaUIEngine001", 11, "void*(__thiscall*)(void*)")!)
 nativeIsValidPanelPointer = UIEngine\get(36, "bool(__thiscall*)(void*,void const*)")
 nativeGetLastDispatchedEventTargetPanel = UIEngine\get(56, "void*(__thiscall*)(void*)")
-nativeRunScript = UIEngine\get(113, "int(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
+nativeCompileRunScript = UIEngine\get(113, "int(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
+nativeRunScript = cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?")))
 nativeGetV8GlobalContext = UIEngine\get(123, "void*(__thiscall*)(void*)")
 nativeGetIsolate = UIEngine\get(129, "void*(__thiscall*)(void*)")
 nativeGetParent = vtable_thunk(25, "void*(__thiscall*)(void*)")
@@ -63,6 +64,7 @@ nativeGetID = vtable_thunk(9, "const char*(__thiscall*)(void*)")
 nativeFindChildTraverse = vtable_thunk(40, "void*(__thiscall*)(void*,const char*)")
 nativeGetJavaScriptContextParent = vtable_thunk(218, "void*(__thiscall*)(void*)")
 nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 00 85 C0 75 1B"))), UIEngine\getInstance!)
+nativeReadFile = vtable_bind("filesystem_stdio.dll", "VFileSystem017", 17, "bool(__thiscall*)(const char*,const char*,char*,int,int,int)")
 --#pragma endregion native_panorama_functions
 
 --#pragma region native_v8_functions
@@ -136,6 +138,10 @@ class Number extends Value
     getValue: => @this\numberValue!
     getInstance: => @this
 
+class Integer extends Number
+    new: (isolate, val) =>
+        @this = MaybeLocal(v8_dll\get("?NewFromUnsigned@Integer@v8@@SA?AV?$Local@VInteger@v8@@@2@PAVIsolate@2@I@Z", "void*(__cdecl*)(void*,void*,uint32_t)")(new("int[1]"), isolate, tonumber(val)))\toLocalChecked!!
+
 class String extends Value
     new: (isolate, val) => @this = MaybeLocal(v8_dll\get("?NewFromUtf8@String@v8@@SA?AV?$MaybeLocal@VString@v8@@@2@PAVIsolate@2@PBDW4NewStringType@2@H@Z", "void*(__cdecl*)(void*,void*,const char*,int,int)")(new("int[1]"), isolate, val, 0, #val))\toLocalChecked!!
     getValue: => @this\stringValue!
@@ -172,6 +178,33 @@ class HandleScope
         @exit!
         isolate\exit!
         val
+
+class Script
+    compile: (source, scriptOrigin) =>
+        MaybeLocal(v8_dll\get("?Compile@Script@v8@@SA?AV?$Local@VScript@v8@@@2@V?$Local@VString@v8@@@2@PAVScriptOrigin@2@@Z", "void*(__thiscall*)(void*,void*)")(new("int[1]"), source, scriptOrigin))\toLocalChecked!!
+    loadstring: (str, panel) =>
+        isolate = Isolate(nativeGetIsolate!)
+        handleScope = HandleScope()
+        isolate\enter!
+        handleScope\enter!
+        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInstance!
+        ctx = Context(if ctx ~= nullptr then @createHandle(ctx[0]) else 0)
+        ctx\enter!
+        source = String(isolate, str)
+        scriptOrigin = new "void*[6]"
+        resource_name_buffer = new "char[261]"
+        nativeReadFile("panorama/layout/base.xml", "MOD", resource_name_buffer, 261, 0, 0)
+        scriptOrigin[0] = String(isolate, ffi.string(resource_name_buffer))\getInstance!
+        scriptOrigin[1] = Integer(isolate, 8)\getInstance!
+        scriptOrigin[2] = Integer(isolate, 10)\getInstance!
+        scriptOrigin[3] = 0
+        scriptOrigin[4] = 0
+        scriptOrigin[5] = 0
+        ret = MaybeLocal(nativeRunScript(new("int[1]"), panel, @compile(source, scriptOrigin)\getInstance!, 0, false))\toLocalChecked!!
+        ctx\exit!
+        handleScope\exit!
+        isolate\exit!
+        ret
 
 PanelInfo_t = typeof([[
     struct {
@@ -236,7 +269,7 @@ panorama.GetPanel = (panelName) ->
 
 panorama.RunScript= (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pathToXMLContext="panorama/layout/base.xml") ->
     if not nativeIsValidPanelPointer(panel) then safe_error("Invalid panel")
-    nativeRunScript(panel,jsCode,pathToXMLContext,8,10,false)
+    nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
 test = HandleScope()
 testFunc = ->
