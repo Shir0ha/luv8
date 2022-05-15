@@ -33,24 +33,24 @@ follow_call = (ptr) ->
             cast("uint32_t", insn + cast("int32_t*", insn + 1)[0] + 5)
         when 0xFF if insn[1] == 0x15
             cast("uint32_t**", cast("const char*", ptr) + 2)[0][0]
-retrive_magic = (ptr, offset, length) ->
-    addr = cast("uintptr_t", ptr)+offset
-    old_prot = new("unsigned long[1]")
-    virtual_protect(addr,length,0x40,old_prot)
-    bytes = cast("uint8_t*", addr)
-    ret = {}
-    for i=1, length do
-        table.insert(ret,bytes[i-1])
-    virtual_protect(addr,length,old_prot[0],old_prot)
-    ret
-apply_magic = (ptr, offset, data) ->
-    addr = cast("uintptr_t", ptr)+offset
-    old_prot = new("unsigned long[1]")
-    virtual_protect(addr,#data,0x40,old_prot)
-    bytes = cast("uint8_t*", addr)
-    for i,v in ipairs(data) do
-        bytes[i-1]=v
-    virtual_protect(addr,#data,old_prot[0],old_prot)
+-- retrive_magic = (ptr, offset, length) ->
+--     addr = cast("uintptr_t", ptr)+offset
+--     old_prot = new("unsigned long[1]")
+--     virtual_protect(addr,length,0x40,old_prot)
+--     bytes = cast("uint8_t*", addr)
+--     ret = {}
+--     for i=1, length do
+--         table.insert(ret,bytes[i-1])
+--     virtual_protect(addr,length,old_prot[0],old_prot)
+--     ret
+-- apply_magic = (ptr, offset, data) ->
+--     addr = cast("uintptr_t", ptr)+offset
+--     old_prot = new("unsigned long[1]")
+--     virtual_protect(addr,#data,0x40,old_prot)
+--     bytes = cast("uint8_t*", addr)
+--     for i,v in ipairs(data) do
+--         bytes[i-1]=v
+--     virtual_protect(addr,#data,old_prot[0],old_prot)
 --#pragma endregion helper_functions
 nullptr = new("void*")
 panorama = {
@@ -77,7 +77,7 @@ nativeCompileRunScript = UIEngine\get(113, "void****(__thiscall*)(void*,void*,ch
 nativeRunScriptSig=utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?")
 if nativeRunScriptSig==nil then
     nativeRunScriptSig=utils.find_pattern("panorama.dll", "E8 ? ? ? ? 50 8B 4C 24 14 FF 15 ? ? ? ?")
-nativeRunScript = cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(nativeRunScriptSig))
+nativeRunScript = __thiscall(cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(nativeRunScriptSig)), UIEngine\getInstance!)
 nativeGetV8GlobalContext = UIEngine\get(123, "void*(__thiscall*)(void*)")
 nativeGetIsolate = UIEngine\get(129, "void*(__thiscall*)(void*)")
 nativeGetParent = vtable_thunk(25, "void*(__thiscall*)(void*)")
@@ -85,41 +85,40 @@ nativeGetID = vtable_thunk(9, "const char*(__thiscall*)(void*)")
 nativeFindChildTraverse = vtable_thunk(40, "void*(__thiscall*)(void*,const char*)")
 nativeGetJavaScriptContextParent = vtable_thunk(218, "void*(__thiscall*)(void*)")
 nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 00 85 C0 75 1B"))), UIEngine\getInstance!)
-nativeReadFile = vtable_bind("filesystem_stdio.dll", "VFileSystem017", 17, "bool(__thiscall*)(const char*,const char*,char*,int,int,int)")
 --#pragma endregion native_panorama_functions
 
 --#pragma region magic
-run_magic = ->
-    magic_fragment_1=retrive_magic(UIEngine\getInstance![0][113],0x2A5,4)
-    magic_fragment_2=retrive_magic(UIEngine\getInstance![0][113],0x2AF,4)
-    magic_fragment_3=retrive_magic(UIEngine\getInstance![0][113],0x2B9,4)
-    magic_fragment_4=retrive_magic(UIEngine\getInstance![0][113],0x2C6,4)
-    magic_fragment_5=retrive_magic(UIEngine\getInstance![0][113],0x2CC,4)
+-- run_magic = ->
+--     magic_fragment_1=retrive_magic(UIEngine\getInstance![0][113],0x2A5,4)
+--     magic_fragment_2=retrive_magic(UIEngine\getInstance![0][113],0x2AF,4)
+--     magic_fragment_3=retrive_magic(UIEngine\getInstance![0][113],0x2B9,4)
+--     magic_fragment_4=retrive_magic(UIEngine\getInstance![0][113],0x2C6,4)
+--     magic_fragment_5=retrive_magic(UIEngine\getInstance![0][113],0x2CC,4)
 
-    magic = {
-        0x50,
-        0x8B, 0x4C, 0x24, 0x14, 0xFF, 0x15, -- 0x10->0x14
-        magic_fragment_1[1],magic_fragment_1[2],magic_fragment_1[3],magic_fragment_1[4],
-        0x8D, 0x4C, 0x24, 0x70, 0xFF, 0x15, -- 0x6C->0x70
-        magic_fragment_2[1],magic_fragment_2[2],magic_fragment_2[3],magic_fragment_2[4],
-        0x8B, 0x4C, 0x24, 0x20, 0xFF, 0x15, -- 0x1C->0x20
-        magic_fragment_3[1],magic_fragment_3[2],magic_fragment_3[3],magic_fragment_3[4],
-        0x83, 0x7C, 0x24, 0x24, 0x00, 0x74, 0x0C, --0x20->0x24
-        0x8B, 0x0D,
-        magic_fragment_4[1],magic_fragment_4[2],magic_fragment_4[3],magic_fragment_4[4],
-        0xFF, 0x15,
-        magic_fragment_5[1],magic_fragment_5[2],magic_fragment_5[3],magic_fragment_5[4],
-        0x58,
-        0x5F, 0x5E, 0x5B, 0x8B, 0xE5, 0x5D,
-        0xC2, 0x1C, 0x00
-    }
+--     magic = {
+--         0x50,
+--         0x8B, 0x4C, 0x24, 0x14, 0xFF, 0x15, -- 0x10->0x14
+--         magic_fragment_1[1],magic_fragment_1[2],magic_fragment_1[3],magic_fragment_1[4],
+--         0x8D, 0x4C, 0x24, 0x70, 0xFF, 0x15, -- 0x6C->0x70
+--         magic_fragment_2[1],magic_fragment_2[2],magic_fragment_2[3],magic_fragment_2[4],
+--         0x8B, 0x4C, 0x24, 0x20, 0xFF, 0x15, -- 0x1C->0x20
+--         magic_fragment_3[1],magic_fragment_3[2],magic_fragment_3[3],magic_fragment_3[4],
+--         0x83, 0x7C, 0x24, 0x24, 0x00, 0x74, 0x0C, --0x20->0x24
+--         0x8B, 0x0D,
+--         magic_fragment_4[1],magic_fragment_4[2],magic_fragment_4[3],magic_fragment_4[4],
+--         0xFF, 0x15,
+--         magic_fragment_5[1],magic_fragment_5[2],magic_fragment_5[3],magic_fragment_5[4],
+--         0x58,
+--         0x5F, 0x5E, 0x5B, 0x8B, 0xE5, 0x5D,
+--         0xC2, 0x1C, 0x00
+--     }
 
-    apply_magic(UIEngine\getInstance![0][113],0x29F,magic)
+--     apply_magic(UIEngine\getInstance![0][113],0x29F,magic)
 
-magic_detection=retrive_magic(UIEngine\getInstance![0][113],0x29F,1)
+-- magic_detection=retrive_magic(UIEngine\getInstance![0][113],0x29F,1)
 
-if magic_detection[1]==0x8B then
-    run_magic!
+-- if magic_detection[1]==0x8B then
+--     run_magic!
 --#pragma endregion magic
 
 --#pragma region native_v8_functions
@@ -127,13 +126,20 @@ v8_dll = DllImport("v8.dll")
 
 class Local
     new: (val) => @this = val
-    getInstance: => @this
+    getInternal: => @this
+    globalize: =>
+        Persistent(v8_dll\get("?GlobalizeReference@V8@v8@@CAPAPAVObject@internal@2@PAVIsolate@42@PAPAV342@@Z", "void*(__cdecl*)(void*,void*)")(nativeGetIsolate!, @this[0]))
     __call: => Value(@this[0])
 
 class MaybeLocal
     new: (val) => @this = cast("void**", val)
-    getInstance: => @this
+    getInternal: => @this
     toLocalChecked: => Local(@this) unless @this == nullptr
+
+class Persistent
+    new: (val) => @this = val
+    getInternal: => @this
+    get: => MaybeLocal(HandleScope\createHandle(@this))
 
 class Value
     new: (val) => @this = cast("void*", val)
@@ -160,6 +166,7 @@ class Value
         Object(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!)
     toLocal: =>
         Local(new("uintptr_t[1]", @this))
+    getInternal: => @this
 
 class Object extends Value
     new: (val) => @this = val
@@ -189,25 +196,28 @@ class Boolean extends Primitive
 
 class Number extends Value
     new: (isolate, val) =>
-        @this = MaybeLocal(v8_dll\get("?New@Number@v8@@SA?AV?$Local@VNumber@v8@@@2@PAVIsolate@2@N@Z", "void*(__cdecl*)(void*,void*,double)")(new("int[1]"), isolate, tonumber(val)))\toLocalChecked!!
-    getValue: => @this\numberValue!
-    getInstance: => @this
+        @this = MaybeLocal(v8_dll\get("?New@Number@v8@@SA?AV?$Local@VNumber@v8@@@2@PAVIsolate@2@N@Z", "void*(__cdecl*)(void*,void*,double)")(new("int[1]"), isolate, tonumber(val)))\toLocalChecked!
+    getLocal: => @this
+    getValue: => @getInstance!\numberValue!
+    getInstance: => @this!
 
 class Integer extends Number
     new: (isolate, val) =>
-        @this = MaybeLocal(v8_dll\get("?NewFromUnsigned@Integer@v8@@SA?AV?$Local@VInteger@v8@@@2@PAVIsolate@2@I@Z", "void*(__cdecl*)(void*,void*,uint32_t)")(new("int[1]"), isolate, tonumber(val)))\toLocalChecked!!
+        @this = MaybeLocal(v8_dll\get("?NewFromUnsigned@Integer@v8@@SA?AV?$Local@VInteger@v8@@@2@PAVIsolate@2@I@Z", "void*(__cdecl*)(void*,void*,uint32_t)")(new("int[1]"), isolate, tonumber(val)))\toLocalChecked!
 
 class String extends Value
-    new: (isolate, val) => @this = MaybeLocal(v8_dll\get("?NewFromUtf8@String@v8@@SA?AV?$MaybeLocal@VString@v8@@@2@PAVIsolate@2@PBDW4NewStringType@2@H@Z", "void*(__cdecl*)(void*,void*,const char*,int,int)")(new("int[1]"), isolate, val, 0, #val))\toLocalChecked!!
-    getValue: => @this\stringValue!
-    getInstance: => @this
+    new: (isolate, val) =>
+        @this = MaybeLocal(v8_dll\get("?NewFromUtf8@String@v8@@SA?AV?$MaybeLocal@VString@v8@@@2@PAVIsolate@2@PBDW4NewStringType@2@H@Z", "void*(__cdecl*)(void*,void*,const char*,int,int)")(new("int[1]"), isolate, val, 0, #val))\toLocalChecked!
+    getLocal: => @this
+    getValue: => @getInstance!\stringValue!
+    getInstance: => @this!
 
 class Isolate
     new: (val) => @this = val
     enter: => v8_dll\get("?Enter@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
     exit: => v8_dll\get("?Exit@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
     getCurrentContext: => v8_dll\get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(nativeGetIsolate!, new("int[1]"))
-    getInstance: => @this
+    getInternal: => @this
 
 class Context
     new: (val) => @this = val
@@ -221,11 +231,11 @@ class HandleScope
     enter: => v8_dll\get("??0HandleScope@v8@@QAE@PAVIsolate@1@@Z", "void(__thiscall*)(void*,void*)")(@this, nativeGetIsolate!)
     exit: => v8_dll\get("??1HandleScope@v8@@QAE@XZ", "void(__thiscall*)(void*)")(@this)
     createHandle: (val) => v8_dll\get("?CreateHandle@HandleScope@v8@@KAPAPAVObject@internal@2@PAVIsolate@42@PAV342@@Z", "void**(__cdecl*)(void*,void*)")(nativeGetIsolate!, val)
-    __call: (func, panel) =>
+    __call: (func, panel = panorama.GetPanel("CSGOJsRegistration")) =>
         isolate = Isolate(nativeGetIsolate!)
         isolate\enter!
         @enter!
-        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInstance!
+        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then @createHandle(ctx[0]) else 0)
         ctx\enter!
         val = func!
@@ -235,27 +245,17 @@ class HandleScope
         val
 
 class Script
-    compile: (source, scriptOrigin) =>
-        MaybeLocal(v8_dll\get("?Compile@Script@v8@@SA?AV?$Local@VScript@v8@@@2@V?$Local@VString@v8@@@2@PAVScriptOrigin@2@@Z", "void*(__cdecl*)(void*,void*,void*)")(new("int[1]"), source, scriptOrigin))\toLocalChecked!!
+    compile: (panel, source, layout = "") =>
+        MaybeLocal(__thiscall(cast("void*(__thiscall*)(void*,void*,const char*,const char*)", utils.find_pattern("panorama.dll", "55 8B EC 83 E4 F8 83 EC 64 53 8B D9")), UIEngine\getInstance!)(panel, source, layout))\toLocalChecked!!
     loadstring: (str, panel) =>
         isolate = Isolate(nativeGetIsolate!)
         handleScope = HandleScope()
         isolate\enter!
         handleScope\enter!
-        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInstance!
+        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then handleScope\createHandle(ctx[0]) else 0)
         ctx\enter!
-        source = String(isolate, str)
-        scriptOrigin = new "void*[6]"
-        resource_name_buffer = new "char[261]"
-        nativeReadFile("panorama/layout/base.xml", "MOD", resource_name_buffer, 261, 0, 0)
-        scriptOrigin[0] = String(isolate, ffi.string(resource_name_buffer))\getInstance!
-        scriptOrigin[1] = Integer(isolate, 8)\getInstance!
-        scriptOrigin[2] = Integer(isolate, 10)\getInstance!
-        scriptOrigin[3] = 0
-        scriptOrigin[4] = 0
-        scriptOrigin[5] = 0
-        ret = MaybeLocal(nativeRunScript(new("int[1]"), panel, @compile(source, scriptOrigin)\getInstance!, 0, false))\toLocalChecked!!
+        ret = MaybeLocal(nativeRunScript(new("int[1]"), panel, @compile(panel, str)\getInternal!, 0, false))\toLocalChecked!\globalize!
         ctx\exit!
         handleScope\exit!
         isolate\exit!
@@ -335,19 +335,21 @@ panorama.loadstring = (jsCode, panel="CSGOJsRegistration") -> -- brugh
         ret
     wrapperScope(wrapperFunc,pPanel)
 
-ret = panorama.loadstring([[
-    (function(){
-        $.Msg("hello again");
-        return "test";
-    })()
-]])
+-- ret = panorama.loadstring([[
+--     (function(){
+--         $.Msg("hello again");
+--         return "test";
+--     })()
+-- ]])
 
-print(tostring(ret))
+-- print(tostring(ret))
 
 test = HandleScope()
+local scriptResult
 testFunc = ->
-    isolate = nativeGetIsolate!
-    print(String(isolate, "hello world")\getValue!)
+    scriptResult = Script\loadstring("(function(){return 'hello world'})()", panorama.GetPanel("CSGOJsRegistration"))
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
-
+test( ->
+        print(tostring(scriptResult\get!\toLocalChecked!!\stringValue!))
+    )
 return 0
