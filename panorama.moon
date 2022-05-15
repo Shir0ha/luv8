@@ -1,7 +1,7 @@
 local *
 
 import cast, typeof, new from ffi
-import jmp, proc_bind from require 'hooks'
+import jmp, proc_bind, virtual_protect from require 'hooks'
 
 --#pragma region helper_functions
 safe_error = (msg) ->
@@ -33,6 +33,24 @@ follow_call = (ptr) ->
             cast("uint32_t", insn + cast("int32_t*", insn + 1)[0] + 5)
         when 0xFF if insn[1] == 0x15
             cast("uint32_t**", cast("const char*", ptr) + 2)[0][0]
+retrive_magic = (ptr, offset, length) ->
+    addr = cast("uintptr_t", ptr)+offset
+    old_prot = new("unsigned long[1]")
+    virtual_protect(addr,length,0x40,old_prot)
+    bytes = cast("uint8_t*", addr)
+    ret = {}
+    for i=1, length do
+        table.insert(ret,bytes[i-1])
+    virtual_protect(addr,length,old_prot[0],old_prot)
+    ret
+apply_magic = (ptr, offset, data) ->
+    addr = cast("uintptr_t", ptr)+offset
+    old_prot = new("unsigned long[1]")
+    virtual_protect(addr,#data,0x40,old_prot)
+    bytes = cast("uint8_t*", addr)
+    for i,v in ipairs(data) do
+        bytes[i-1]=v
+    virtual_protect(addr,#data,old_prot[0],old_prot)
 --#pragma endregion helper_functions
 nullptr = new("void*")
 panorama = {
@@ -55,8 +73,11 @@ class DllImport
 UIEngine = vtable(vtable_bind("panorama.dll", "PanoramaUIEngine001", 11, "void*(__thiscall*)(void*)")!)
 nativeIsValidPanelPointer = UIEngine\get(36, "bool(__thiscall*)(void*,void const*)")
 nativeGetLastDispatchedEventTargetPanel = UIEngine\get(56, "void*(__thiscall*)(void*)")
-nativeCompileRunScript = UIEngine\get(113, "int(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
-nativeRunScript = cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?")))
+nativeCompileRunScript = UIEngine\get(113, "void**(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
+nativeRunScriptSig=utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?")
+if nativeRunScriptSig==nil then
+    nativeRunScriptSig=utils.find_pattern("panorama.dll", "E8 ? ? ? ? 50 8B 4C 24 14 FF 15 ? ? ? ?")
+nativeRunScript = cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(nativeRunScriptSig))
 nativeGetV8GlobalContext = UIEngine\get(123, "void*(__thiscall*)(void*)")
 nativeGetIsolate = UIEngine\get(129, "void*(__thiscall*)(void*)")
 nativeGetParent = vtable_thunk(25, "void*(__thiscall*)(void*)")
@@ -66,6 +87,40 @@ nativeGetJavaScriptContextParent = vtable_thunk(218, "void*(__thiscall*)(void*)"
 nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 00 85 C0 75 1B"))), UIEngine\getInstance!)
 nativeReadFile = vtable_bind("filesystem_stdio.dll", "VFileSystem017", 17, "bool(__thiscall*)(const char*,const char*,char*,int,int,int)")
 --#pragma endregion native_panorama_functions
+
+--#pragma region magic
+run_magic = ->
+    magic_fragment_1=retrive_magic(UIEngine\getInstance![0][113],0x2A5,4)
+    magic_fragment_2=retrive_magic(UIEngine\getInstance![0][113],0x2AF,4)
+    magic_fragment_3=retrive_magic(UIEngine\getInstance![0][113],0x2B9,4)
+    magic_fragment_4=retrive_magic(UIEngine\getInstance![0][113],0x2C6,4)
+    magic_fragment_5=retrive_magic(UIEngine\getInstance![0][113],0x2CC,4)
+
+    magic = {
+        0x50,
+        0x8B, 0x4C, 0x24, 0x14, 0xFF, 0x15, -- 0x10->0x14
+        magic_fragment_1[1],magic_fragment_1[2],magic_fragment_1[3],magic_fragment_1[4],
+        0x8D, 0x4C, 0x24, 0x70, 0xFF, 0x15, -- 0x6C->0x70
+        magic_fragment_2[1],magic_fragment_2[2],magic_fragment_2[3],magic_fragment_2[4],
+        0x8B, 0x4C, 0x24, 0x20, 0xFF, 0x15, -- 0x1C->0x20
+        magic_fragment_3[1],magic_fragment_3[2],magic_fragment_3[3],magic_fragment_3[4],
+        0x83, 0x7C, 0x24, 0x24, 0x00, 0x74, 0x0C, --0x20->0x24
+        0x8B, 0x0D,
+        magic_fragment_4[1],magic_fragment_4[2],magic_fragment_4[3],magic_fragment_4[4],
+        0xFF, 0x15,
+        magic_fragment_5[1],magic_fragment_5[2],magic_fragment_5[3],magic_fragment_5[4],
+        0x58,
+        0x5F, 0x5E, 0x5B, 0x8B, 0xE5, 0x5D,
+        0xC2, 0x1C, 0x00
+    }
+
+    apply_magic(UIEngine\getInstance![0][113],0x29F,magic)
+
+magic_detection=retrive_magic(UIEngine\getInstance![0][113],0x29F,1)
+
+if magic_detection[1]==0x8B then
+    run_magic!
+--#pragma endregion magic
 
 --#pragma region native_v8_functions
 v8_dll = DllImport("v8.dll")
@@ -181,7 +236,7 @@ class HandleScope
 
 class Script
     compile: (source, scriptOrigin) =>
-        MaybeLocal(v8_dll\get("?Compile@Script@v8@@SA?AV?$Local@VScript@v8@@@2@V?$Local@VString@v8@@@2@PAVScriptOrigin@2@@Z", "void*(__thiscall*)(void*,void*)")(new("int[1]"), source, scriptOrigin))\toLocalChecked!!
+        MaybeLocal(v8_dll\get("?Compile@Script@v8@@SA?AV?$Local@VScript@v8@@@2@V?$Local@VString@v8@@@2@PAVScriptOrigin@2@@Z", "void*(__cdecl*)(void*,void*,void*)")(new("int[1]"), source, scriptOrigin))\toLocalChecked!!
     loadstring: (str, panel) =>
         isolate = Isolate(nativeGetIsolate!)
         handleScope = HandleScope()
@@ -267,18 +322,30 @@ panorama.GetPanel = (panelName) ->
         safe_error("Failed to get target panel " .. tostring(panelName))
     pPanel
 
-panorama.RunScript= (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pathToXMLContext="panorama/layout/base.xml") ->
+panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pathToXMLContext="panorama/layout/base.xml") ->
     if not nativeIsValidPanelPointer(panel) then safe_error("Invalid panel")
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
+
+panorama.loadstring = (jsCode, panel="CSGOJsRegistration") -> -- will not work, we will have to do smth different
+    pPanel=panorama.GetPanel(panel)
+    wrapperScope = HandleScope()
+    wrapperFunc = ->
+        panorama.RunScript(jsCode,pPanel)
+    wrapperScope(wrapperFunc,panel)
+
+ret = panorama.RunScript([[
+    (function(){
+        $.Msg("hello again");
+        return 123;
+    })()
+]])
+
+print(tostring(ret))
 
 test = HandleScope()
 testFunc = ->
     isolate = nativeGetIsolate!
     print(String(isolate, "hello world")\getValue!)
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
-
-panorama.RunScript([[
-    $.Msg("hello again");
-]])
 
 return 0
