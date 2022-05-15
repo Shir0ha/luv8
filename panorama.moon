@@ -33,6 +33,8 @@ follow_call = (ptr) ->
             cast("uint32_t", insn + cast("int32_t*", insn + 1)[0] + 5)
         when 0xFF if insn[1] == 0x15
             cast("uint32_t**", cast("const char*", ptr) + 2)[0][0]
+v8js_args = ->
+    print("to be implemented")
 -- retrive_magic = (ptr, offset, length) ->
 --     addr = cast("uintptr_t", ptr)+offset
 --     old_prot = new("unsigned long[1]")
@@ -140,9 +142,13 @@ class Persistent
     new: (val) => @this = val
     getInternal: => @this
     get: => MaybeLocal(HandleScope\createHandle(@this))
+    toLua: =>
+        @get!\toLocalChecked!!\toLua!
 
 class Value
-    new: (val) => @this = cast("void*", val)
+    new: (val) =>
+        if type(val) == "cdata" then @this = cast("void*", val) else
+            print("gonna implement it later lol")
     isUndefined: => v8_dll\get("?IsUndefined@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isNull: => v8_dll\get("?IsNull@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isBoolean: => v8_dll\get("?IsBoolean@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
@@ -164,8 +170,22 @@ class Value
         s
     toObject: =>
         Object(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!)
+    toArray: =>
+        Array(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!)
+    toFunction: =>
+        Function(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!)
     toLocal: =>
         Local(new("uintptr_t[1]", @this))
+    toLua: =>
+        if @isUndefined! or @isNull! then return nil
+        if @isBoolean! or @isBooleanObject! then return @booleanValue!
+        if @isNumber! or @isNumberObject! then return @numberValue!
+        if @isString! or @isStringObject! then return @stringValue!
+        if @isObject! then
+            if @isArray! then return @toArray!
+            if @isFunction! then return @toFunction!
+            return @toObject!
+        error("Failed to convert from v8js to lua: Unknown type")
     getInternal: => @this
 
 class Object extends Value
@@ -175,13 +195,20 @@ class Object extends Value
     set: (key, value) => v8_dll\get("?Set@Object@v8@@QAE_NV?$Local@VValue@v8@@@2@0@Z", "bool(__thiscall*)(void*,void*,void*)")(@this, key, value)
     getPropertyNames: =>
         MaybeLocal(v8_dll\get("?GetPropertyNames@Object@v8@@QAE?AV?$Local@VArray@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))
-    callAsFunction: (args, recv, argc, argv) =>
+    callAsFunction: (recv, argc, argv) =>
         MaybeLocal(v8_dll\get("?CallAsFunction@Object@v8@@QAE?AV?$Local@VValue@v8@@@2@V32@HQAV32@@Z", "void*(__thiscall*)(void*,void*,void*,int,void*)")(@this, new("int[1]"), argc, argv))
     getIdentityHash: => v8_dll\get("?GetIdentityHash@Object@v8@@QAEHXZ", "int(__thiscall*)(void*)")(@this)
 
 class Array extends Object
     new: (val) => @this = val
     length: => v8_dll\get("?Length@Array@v8@@QBEIXZ", "uint32_t(__thiscall*)(void*)")(@this)
+
+class Function extends Object
+    new: (val, parent=Context(Isolate(nativeGetIsolate!)\getCurrentContext!\toLocalChecked!!)\global!\toLocalChecked!!) =>
+        @this = val
+        @parent=parent
+    __call: (...) =>
+        @callAsFunction(parent\getInternal!, v8js_args(...))
 
 class Primitive extends Value
     new: (val) => @this = val
@@ -216,7 +243,7 @@ class Isolate
     new: (val) => @this = val
     enter: => v8_dll\get("?Enter@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
     exit: => v8_dll\get("?Exit@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
-    getCurrentContext: => v8_dll\get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(nativeGetIsolate!, new("int[1]"))
+    getCurrentContext: => v8_dll\get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(@this, new("int[1]"))
     getInternal: => @this
 
 class Context
@@ -327,13 +354,7 @@ panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pat
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
 panorama.loadstring = (jsCode, panel="CSGOJsRegistration") -> -- brugh
-    pPanel=panorama.GetPanel(panel)
-    wrapperScope = HandleScope()
-    wrapperFunc = ->
-        ret = panorama.RunScript(jsCode,pPanel)
-        ret = wrapperScope.createHandle(ret[0][0])-- doesn't fucking work
-        ret
-    wrapperScope(wrapperFunc,pPanel)
+    Script\loadstring(jsCode, panorama.GetPanel(panel))
 
 -- ret = panorama.loadstring([[
 --     (function(){
