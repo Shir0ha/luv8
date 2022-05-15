@@ -73,7 +73,7 @@ class DllImport
 UIEngine = vtable(vtable_bind("panorama.dll", "PanoramaUIEngine001", 11, "void*(__thiscall*)(void*)")!)
 nativeIsValidPanelPointer = UIEngine\get(36, "bool(__thiscall*)(void*,void const*)")
 nativeGetLastDispatchedEventTargetPanel = UIEngine\get(56, "void*(__thiscall*)(void*)")
-nativeCompileRunScript = UIEngine\get(113, "void**(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
+nativeCompileRunScript = UIEngine\get(113, "void****(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
 nativeRunScriptSig=utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?")
 if nativeRunScriptSig==nil then
     nativeRunScriptSig=utils.find_pattern("panorama.dll", "E8 ? ? ? ? 50 8B 4C 24 14 FF 15 ? ? ? ?")
@@ -220,7 +220,7 @@ class HandleScope
     new: => @this = new("char[0xC]")
     enter: => v8_dll\get("??0HandleScope@v8@@QAE@PAVIsolate@1@@Z", "void(__thiscall*)(void*,void*)")(@this, nativeGetIsolate!)
     exit: => v8_dll\get("??1HandleScope@v8@@QAE@XZ", "void(__thiscall*)(void*)")(@this)
-    createHandle: (val) => v8_dll\get("?CreateHandle@HandleScope@v8@@KAPAPAVObject@internal@2@PAVIsolate@42@PAV342@@Z", "void*(__cdecl*)(void*,void*)")(nativeGetIsolate!, val)
+    createHandle: (val) => v8_dll\get("?CreateHandle@HandleScope@v8@@KAPAPAVObject@internal@2@PAVIsolate@42@PAV342@@Z", "void**(__cdecl*)(void*,void*)")(nativeGetIsolate!, val)
     __call: (func, panel) =>
         isolate = Isolate(nativeGetIsolate!)
         isolate\enter!
@@ -326,17 +326,19 @@ panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pat
     if not nativeIsValidPanelPointer(panel) then safe_error("Invalid panel")
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
-panorama.loadstring = (jsCode, panel="CSGOJsRegistration") -> -- will not work, we will have to do smth different
+panorama.loadstring = (jsCode, panel="CSGOJsRegistration") -> -- brugh
     pPanel=panorama.GetPanel(panel)
     wrapperScope = HandleScope()
     wrapperFunc = ->
-        panorama.RunScript(jsCode,pPanel)
-    wrapperScope(wrapperFunc,panel)
+        ret = panorama.RunScript(jsCode,pPanel)
+        ret = wrapperScope.createHandle(ret[0][0])-- doesn't fucking work
+        ret
+    wrapperScope(wrapperFunc,pPanel)
 
-ret = panorama.RunScript([[
+ret = panorama.loadstring([[
     (function(){
         $.Msg("hello again");
-        return 123;
+        return "test";
     })()
 ]])
 
