@@ -33,8 +33,21 @@ follow_call = (ptr) ->
             cast("uint32_t", insn + cast("int32_t*", insn + 1)[0] + 5)
         when 0xFF if insn[1] == 0x15
             cast("uint32_t**", cast("const char*", ptr) + 2)[0][0]
-v8js_args = ->
-    print("to be implemented")
+v8js_args = (...) ->
+    argTbl = {...}
+    iArgc = #argTbl
+    pArgv = new(string.format("void*[%.f]", iArgc))
+    for i = 1, iArgc do
+        pArgv[i - 1] = Value(argTbl[i])\toLocal!
+    iArgc,pArgv
+is_array = (val) ->
+    i=1
+    for _ in pairs(val) do
+        if val[i] ~=nil then
+            i=i+1
+        else
+            return false
+    return i~=1
 -- retrive_magic = (ptr, offset, length) ->
 --     addr = cast("uintptr_t", ptr)+offset
 --     old_prot = new("unsigned long[1]")
@@ -148,7 +161,12 @@ class Persistent
 class Value
     new: (val) =>
         if type(val) == "cdata" then @this = cast("void*", val) else
-            print("gonna implement it later lol")
+            if val==nil then return Null(nativeGetIsolate!)
+            if type(val) == "boolean" then return Boolean(nativeGetIsolate!,val)
+            if type(val) == "number" then return Number(nativeGetIsolate!,val)!
+            if type(val) == "string" then return String(nativeGetIsolate!,val)!
+            if type(val) == "table" and is_array(val) then return Array(nativeGetIsolate!,val)!
+            safe_error("Failed to convert from lua to v8js: Unknown type")
     isUndefined: => v8_dll\get("?IsUndefined@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isNull: => v8_dll\get("?IsNull@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isBoolean: => v8_dll\get("?IsBoolean@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
@@ -185,7 +203,7 @@ class Value
             if @isArray! then return @toArray!
             if @isFunction! then return @toFunction!
             return @toObject!
-        error("Failed to convert from v8js to lua: Unknown type")
+        safe_error("Failed to convert from v8js to lua: Unknown type")
     getInternal: => @this
 
 class Object extends Value
@@ -200,7 +218,16 @@ class Object extends Value
     getIdentityHash: => v8_dll\get("?GetIdentityHash@Object@v8@@QAEHXZ", "int(__thiscall*)(void*)")(@this)
 
 class Array extends Object
-    new: (val) => @this = val
+    new: (val,val2) =>
+        if val2==nil then @this = val else
+            arr = Array(MaybeLocal(v8_dll\get("?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PAVIsolate@2@H@Z","void*(__cdecl*)(void*,void*,int)")(new("int[1]"), val, #val2))\toLocalChecked!!)
+            for i=1, #val2 do
+                arr\set(i-1,Value(val2[i])\getInternal!)
+            arr
+    get: (key) =>
+        MaybeLocal(v8_dll\get("?Get@Object@v8@@QAE?AV?$Local@VValue@v8@@@2@I@Z", "void*(__thiscall*)(void*,void*,unsigned int)")(@this, new("int[1]"), key))-- this is NOT the same as the one above
+    set: (key, value) =>
+        v8_dll\get("?Set@Object@v8@@QAE_NIV?$Local@VValue@v8@@@2@@Z", "bool(__thiscall*)(void*,unsigned int,void*)")(@this, key, value)
     length: => v8_dll\get("?Length@Array@v8@@QBEIXZ", "uint32_t(__thiscall*)(void*)")(@this)
 
 class Function extends Object
@@ -354,16 +381,16 @@ panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pat
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
 panorama.loadstring = (jsCode, panel="CSGOJsRegistration") -> -- brugh
-    Script\loadstring(jsCode, panorama.GetPanel(panel))
+    Script\loadstring(jsCode, panorama.GetPanel(panel))\toLua!
 
--- ret = panorama.loadstring([[
---     (function(){
---         $.Msg("hello again");
---         return "test";
---     })()
--- ]])
+ret = panorama.loadstring([[
+     (function(){
+         $.Msg("hello again");
+         return "test";
+     })()
+]])
 
--- print(tostring(ret))
+print(tostring(ret))
 
 test = HandleScope()
 local scriptResult
