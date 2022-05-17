@@ -140,7 +140,7 @@ nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", fol
 v8_dll = DllImport("v8.dll")
 
 class Local
-    new: (val) => @this = val
+    new: (val) => @this = cast("void**", val)
     getInternal: => @this
     globalize: =>
         Persistent(v8_dll\get("?GlobalizeReference@V8@v8@@CAPAPAVObject@internal@2@PAVIsolate@42@PAPAV342@@Z", "void*(__cdecl*)(void*,void*)")(nativeGetIsolate!, @this[0]))
@@ -155,17 +155,17 @@ class Persistent
     new: (val) => @this = val
     getInternal: => @this
     get: => MaybeLocal(HandleScope\createHandle(@this))
-    toLua: =>
+    toLua: => -- should NOT be used if the persistent is an object!!!! cuz it will just return the same thing again
         @get!\toLocalChecked!!\toLua!
 
 class Value
     new: (val) =>
         if type(val) == "cdata" then @this = cast("void*", val) else
-            if val==nil then return Null(nativeGetIsolate!)
-            if type(val) == "boolean" then return Boolean(nativeGetIsolate!,val)
-            if type(val) == "number" then return Number(nativeGetIsolate!,val)!
-            if type(val) == "string" then return String(nativeGetIsolate!,val)!
-            if type(val) == "table" and is_array(val) then return Array(nativeGetIsolate!,val)!
+            if val==nil then return @this = Null(nativeGetIsolate!)\getValue!\getInternal!
+            if type(val) == "boolean" then return @this = Boolean(nativeGetIsolate!,val)\getValue!\getInternal!
+            if type(val) == "number" then return @this = Number(nativeGetIsolate!,val)\getInstance!\getInternal!
+            if type(val) == "string" then return @this = String(nativeGetIsolate!,val)\getInstance!\getInternal!
+            if type(val) == "table" and is_array(val) then return @this = Array(nativeGetIsolate!,val)\getInstance!\getInternal!
             safe_error("Failed to convert from lua to v8js: Unknown type")
     isUndefined: => v8_dll\get("?IsUndefined@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isNull: => v8_dll\get("?IsNull@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
@@ -187,22 +187,22 @@ class Value
         v8_dll\get("??1Utf8Value@String@v8@@QAE@XZ", "void(__thiscall*)(void*)")(strBuf)
         s
     toObject: =>
-        Object(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!)
+        Object(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!\getInternal!)
     toArray: =>
-        Array(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!)
+        Array(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!\getInternal!)
     toFunction: =>
-        Function(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!)
+        Function(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!\getInternal!)
     toLocal: =>
-        Local(new("uintptr_t[1]", @this))
+        Local(new("void*[1]",@this))
     toLua: =>
         if @isUndefined! or @isNull! then return nil
         if @isBoolean! or @isBooleanObject! then return @booleanValue!
         if @isNumber! or @isNumberObject! then return @numberValue!
         if @isString! or @isStringObject! then return @stringValue!
-        if @isObject! then
-            if @isArray! then return @toArray!
-            if @isFunction! then return @toFunction!
-            return @toObject!
+        if @isObject! then -- returns persistent proxy
+            if @isArray! then return @toArray!\toLocal!\globalize!
+            if @isFunction! then return @toFunction!\toLocal!\globalize!
+            return @toObject!\toLocal!\globalize!
         safe_error("Failed to convert from v8js to lua: Unknown type")
     getInternal: => @this
 
@@ -219,7 +219,9 @@ class Object extends Value
 
 class Array extends Object
     new: (val,val2) =>
-        if val2==nil then @this = val else
+        if val2==nil then
+            @this = val
+        else
             arr = Array(MaybeLocal(v8_dll\get("?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PAVIsolate@2@H@Z","void*(__cdecl*)(void*,void*,int)")(new("int[1]"), val, #val2))\toLocalChecked!!)
             for i=1, #val2 do
                 arr\set(i-1,Value(val2[i])\getInternal!)
@@ -308,8 +310,8 @@ class Script
         handleScope\enter!
         ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then handleScope\createHandle(ctx[0]) else 0)
-        ctx\enter!
-        ret = MaybeLocal(nativeRunScript(new("int[1]"), panel, @compile(panel, str)\getInternal!, 0, false))\toLocalChecked!\globalize!
+        ctx\enter!-- we NEED try catch here!!!
+        ret = MaybeLocal(nativeRunScript(new("int[1]"), panel, @compile(panel, str)\getInternal!, 0, false))\toLocalChecked!!\toLua!
         ctx\exit!
         handleScope\exit!
         isolate\exit!
@@ -380,24 +382,25 @@ panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pat
     if not nativeIsValidPanelPointer(panel) then safe_error("Invalid panel")
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
-panorama.loadstring = (jsCode, panel="CSGOJsRegistration") -> -- brugh
-    Script\loadstring(jsCode, panorama.GetPanel(panel))\toLua!
+panorama.loadstring = (jsCode, panel="CSGOJsRegistration") ->
+    Script\loadstring(jsCode, panorama.GetPanel(panel))
 
 ret = panorama.loadstring([[
      (function(){
          $.Msg("hello again");
-         return "test";
+         return {"test":"success"};
      })()
 ]])
 
-print(tostring(ret))
+--print(tostring(ret))
 
 test = HandleScope()
-local scriptResult
+--local scriptResult
 testFunc = ->
-    scriptResult = Script\loadstring("(function(){return 'hello world'})()", panorama.GetPanel("CSGOJsRegistration"))
+    --scriptResult = Script\loadstring("(function(){return 'hello world'})()", panorama.GetPanel("CSGOJsRegistration"))
+    print(Value(123)\isNumber!)
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
-test( ->
-        print(tostring(scriptResult\get!\toLocalChecked!!\stringValue!))
-    )
+--test( ->
+--        print(tostring(scriptResult\get!\toLocalChecked!!\stringValue!))
+--    )
 return 0
