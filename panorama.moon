@@ -159,14 +159,14 @@ class Persistent
         @get!\toLocalChecked!!\toLua!
 
 class Value
-    new: (val) =>
-        if type(val) == "cdata" then @this = cast("void*", val) else
-            if val==nil then return @this = Null(nativeGetIsolate!)\getValue!\getInternal!
-            if type(val) == "boolean" then return @this = Boolean(nativeGetIsolate!,val)\getValue!\getInternal!
-            if type(val) == "number" then return @this = Number(nativeGetIsolate!,val)\getInstance!\getInternal!
-            if type(val) == "string" then return @this = String(nativeGetIsolate!,val)\getInstance!\getInternal!
-            if type(val) == "table" and is_array(val) then return @this = Array(nativeGetIsolate!,val)\getInstance!\getInternal!
-            safe_error("Failed to convert from lua to v8js: Unknown type")
+    new: (val) => @this = cast("void*", val)
+    fromLua: (val) =>
+        if val==nil then return Null(nativeGetIsolate!)\getValue!
+        if type(val) == "boolean" then return Boolean(nativeGetIsolate!,val)\getValue!
+        if type(val) == "number" then return Number(nativeGetIsolate!,val)\getInstance!
+        if type(val) == "string" then return String(nativeGetIsolate!,val)\getInstance!
+        if type(val) == "table" and is_array(val) then return Array\fromLua(nativeGetIsolate!,val)
+        safe_error("Failed to convert from lua to v8js: Unknown type")
     isUndefined: => v8_dll\get("?IsUndefined@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isNull: => v8_dll\get("?IsNull@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isBoolean: => v8_dll\get("?IsBoolean@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
@@ -218,14 +218,12 @@ class Object extends Value
     getIdentityHash: => v8_dll\get("?GetIdentityHash@Object@v8@@QAEHXZ", "int(__thiscall*)(void*)")(@this)
 
 class Array extends Object
-    new: (val,val2) =>
-        if val2==nil then
-            @this = val
-        else
-            arr = Array(MaybeLocal(v8_dll\get("?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PAVIsolate@2@H@Z","void*(__cdecl*)(void*,void*,int)")(new("int[1]"), val, #val2))\toLocalChecked!!)
-            for i=1, #val2 do
-                arr\set(i-1,Value(val2[i])\getInternal!)
-            arr
+    new: (val) => @this = val
+    fromLua: (isolate, val) =>
+        arr = Array(MaybeLocal(v8_dll\get("?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PAVIsolate@2@H@Z","void*(__cdecl*)(void*,void*,int)")(new("int[1]"), isolate, #val))\toLocalChecked!!\getInternal!)
+        for i=1, #val do
+            arr\set(i-1,Value\fromLua(val[i])\getInternal!)
+        arr
     get: (key) =>
         MaybeLocal(v8_dll\get("?Get@Object@v8@@QAE?AV?$Local@VValue@v8@@@2@I@Z", "void*(__thiscall*)(void*,void*,unsigned int)")(@this, new("int[1]"), key))-- this is NOT the same as the one above
     set: (key, value) =>
@@ -398,7 +396,11 @@ test = HandleScope()
 --local scriptResult
 testFunc = ->
     --scriptResult = Script\loadstring("(function(){return 'hello world'})()", panorama.GetPanel("CSGOJsRegistration"))
-    print(Value(123)\isNumber!)
+    print(Value\fromLua({1,2,3,4,5}))
+    print(Value\fromLua("nmsl")\toLua!)
+    print(Value\fromLua(true)\toLua!)
+    print(Value\fromLua(123)\toLua!)
+    print(Value\fromLua(nil)\toLua!)
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
 --test( ->
 --        print(tostring(scriptResult\get!\toLocalChecked!!\stringValue!))
