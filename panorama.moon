@@ -149,7 +149,7 @@ class Local
 class MaybeLocal
     new: (val) => @this = cast("void**", val)
     getInternal: => @this
-    toLocalChecked: => Local(@this) unless @this == nullptr
+    toLocalChecked: => Local(@this) unless @this[0] == nullptr
 
 class Persistent
     new: (val) => @this = val
@@ -298,18 +298,30 @@ class HandleScope
         isolate\exit!
         val
 
+class TryCatch
+    new: => @this = new("char[0x19]")
+    enter: => v8_dll\get("??0TryCatch@v8@@QAE@PAVIsolate@1@@Z", "void(__thiscall*)(void*,void*)")(@this, nativeGetIsolate!)
+    exit: => v8_dll\get("??1TryCatch@v8@@QAE@XZ", "void(__thiscall*)(void*)")(@this)
+    canContinue: => v8_dll\get("?CanContinue@TryCatch@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
+    hasTerminated: => v8_dll\get("?HasTerminated@TryCatch@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
+    hasCaught: => v8_dll\get("?HasCaught@TryCatch@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
+
 class Script
     compile: (panel, source, layout = "") =>
-        MaybeLocal(__thiscall(cast("void*(__thiscall*)(void*,void*,const char*,const char*)", utils.find_pattern("panorama.dll", "55 8B EC 83 E4 F8 83 EC 64 53 8B D9")), UIEngine\getInstance!)(panel, source, layout))\toLocalChecked!!
+        __thiscall(cast("void**(__thiscall*)(void*,void*,const char*,const char*)", utils.find_pattern("panorama.dll", "55 8B EC 83 E4 F8 83 EC 64 53 8B D9")), UIEngine\getInstance!)(panel, source, layout)
     loadstring: (str, panel) =>
         isolate = Isolate(nativeGetIsolate!)
         handleScope = HandleScope()
+        tryCatch = TryCatch()
         isolate\enter!
         handleScope\enter!
         ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then handleScope\createHandle(ctx[0]) else 0)
         ctx\enter!-- we NEED try catch here!!!
-        ret = MaybeLocal(nativeRunScript(new("int[1]"), panel, @compile(panel, str)\getInternal!, 0, false))\toLocalChecked!!\toLua!
+        tryCatch\enter!
+        compiled = MaybeLocal(@compile(panel, str))\toLocalChecked!
+        tryCatch\exit!
+        ret = MaybeLocal(nativeRunScript(new("int[1]"), panel, compiled!\getInternal!, 0, false))\toLocalChecked!!\toLua! unless compiled==nil -- we do not have to trycatch this one because it already does it itself!
         ctx\exit!
         handleScope\exit!
         isolate\exit!
@@ -396,11 +408,11 @@ test = HandleScope()
 --local scriptResult
 testFunc = ->
     --scriptResult = Script\loadstring("(function(){return 'hello world'})()", panorama.GetPanel("CSGOJsRegistration"))
-    print(Value\fromLua({1,2,3,4,5}))
-    print(Value\fromLua("nmsl")\toLua!)
-    print(Value\fromLua(true)\toLua!)
-    print(Value\fromLua(123)\toLua!)
-    print(Value\fromLua(nil)\toLua!)
+    --print(Value\fromLua({1,2,3,4,5}))
+    --print(Value\fromLua("nmsl")\toLua!)
+    --print(Value\fromLua(true)\toLua!)
+    --print(Value\fromLua(123)\toLua!)
+    --print(Value\fromLua(nil)\toLua!)
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
 --test( ->
 --        print(tostring(scriptResult\get!\toLocalChecked!!\stringValue!))
