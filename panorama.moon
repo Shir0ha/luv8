@@ -151,6 +151,61 @@ class MaybeLocal
     getInternal: => @this
     toLocalChecked: => Local(@this) unless @this[0] == nullptr
 
+PersistentProxy_mt: {
+    __index: (key) =>
+        ret = nil
+        if @baseType == "Array" then
+            ret = HandleScope()(() -> @get!\toLocalChecked!!\toArray!\get(key)\toLocalChecked!!\toLua!)
+        elseif @baseType == "Object" then
+            ret = HandleScope()(() -> @get!\toLocalChecked!!\toObject!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
+        ret
+    __newindex: (key, value) =>
+        ret = false
+        if @baseType == "Array" then
+            ret = HandleScope()(() -> @get!\toLocalChecked!!\toArray!\set(key,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
+        elseif @baseType == "Object" then
+            ret = HandleScope()(() -> @get!\toLocalChecked!!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
+        ret
+    __len: =>
+        ret = 0
+        if @baseType == "Array" then
+            ret = HandleScope()(() -> @get!\toLocalChecked!!\toArray!\length!)
+        elseif @baseType == "Object" then
+            ret = HandleScope()(() -> @get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!\toArray!\length!)
+        ret
+    __pairs: =>
+        ret = () -> nil
+        if @baseType == "Object" then
+            HandleScope()(
+            keys = Array(@get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!)
+            current, size = 0, keys\length!
+            ret = () ->
+                current = current+1
+                key = keys[current-1]
+                if current <= size then
+                    return key,@[key]
+            )
+        ret
+    __ipairs: =>
+        ret = () -> nil
+        if @baseType == "Array" then
+            HandleScope()(
+            current, size = 0, @get!\toLocalChecked!!\toArray!\length!
+            ret = () ->
+                current = current+1
+                if current <= size then
+                    return current,@[current-1]
+            )
+        ret
+    __call: (...) =>
+        if @baseType ~= "Function" then safe_error("Attempted to call a non-function value: " .. @baseType)
+        HandleScope()(
+            @get!\toLocalChecked!!\toFunction!(...) -- did not implement recv... will work on it tmr
+        )
+    __tostring: =>
+        HandleScope()(() -> @get!\toLocalChecked!!\stringValue!)
+}
+
 class Persistent
     new: (val, baseType="Value") =>
         @this = val
@@ -162,15 +217,7 @@ class Persistent
     get: => MaybeLocal(HandleScope\createHandle(@this))
     toLua: => -- should NOT be used if the persistent is an object!!!! cuz it will just return the same thing again
         @get!\toLocalChecked!!\toLua!
-    __index: (key) => -- does not work
-        ret = nil
-        if @baseType == "Array" then
-            ret = HandleScope()(() -> @get!\toLocalChecked!!\get(key)\toLocalChecked!!\toLua!)
-        elseif @baseType == "Object" then
-            ret = HandleScope()(() -> @get!\toLocalChecked!!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
-        ret
-    __tostring: =>
-        HandleScope()(() -> @get!\toLocalChecked!!\stringValue!)
+    __call: => setmetatable({self: self, parent: nil}, PersistentProxy_mt)
 
 class Value
     new: (val) => @this = cast("void*", val)
@@ -248,6 +295,8 @@ class Function extends Object
     new: (val, parent=Context(Isolate(nativeGetIsolate!)\getCurrentContext!\toLocalChecked!!)\global!\toLocalChecked!!) =>
         @this = val
         @parent=parent
+    setParent: (val) =>
+        @parent=val
     __call: (...) =>
         @callAsFunction(parent\getInternal!, v8js_args(...))
 
