@@ -152,11 +152,25 @@ class MaybeLocal
     toLocalChecked: => Local(@this) unless @this[0] == nullptr
 
 class Persistent
-    new: (val) => @this = val
+    new: (val, baseType="Value") =>
+        @this = val
+        @baseType=baseType
+    setType: (val) =>
+        @baseType=val
+        @
     getInternal: => @this
     get: => MaybeLocal(HandleScope\createHandle(@this))
     toLua: => -- should NOT be used if the persistent is an object!!!! cuz it will just return the same thing again
         @get!\toLocalChecked!!\toLua!
+    __index: (key) => -- does not work
+        ret = nil
+        if @baseType == "Array" then
+            ret = HandleScope()(() -> @get!\toLocalChecked!!\get(key)\toLocalChecked!!\toLua!)
+        elseif @baseType == "Object" then
+            ret = HandleScope()(() -> @get!\toLocalChecked!!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
+        ret
+    __tostring: =>
+        HandleScope()(() -> @get!\toLocalChecked!!\stringValue!)
 
 class Value
     new: (val) => @this = cast("void*", val)
@@ -200,9 +214,9 @@ class Value
         if @isNumber! or @isNumberObject! then return @numberValue!
         if @isString! or @isStringObject! then return @stringValue!
         if @isObject! then -- returns persistent proxy
-            if @isArray! then return @toArray!\toLocal!\globalize!
-            if @isFunction! then return @toFunction!\toLocal!\globalize!
-            return @toObject!\toLocal!\globalize!
+            if @isArray! then return @toArray!\toLocal!\globalize!\setType("Array")
+            if @isFunction! then return @toFunction!\toLocal!\globalize!\setType("Function")
+            return @toObject!\toLocal!\globalize!\setType("Object")
         safe_error("Failed to convert from v8js to lua: Unknown type")
     getInternal: => @this
 
@@ -398,21 +412,21 @@ panorama.loadstring = (jsCode, panel="CSGOJsRegistration") ->
 ret = panorama.loadstring([[
      (function(){
          $.Msg("hello again");
-         return {"test":"success"};
+         return [1,2,3,4,5];
      })()
 ]])
 
---print(tostring(ret))
+print(tostring(ret[0]))
 
 test = HandleScope()
 --local scriptResult
 testFunc = ->
     --scriptResult = Script\loadstring("(function(){return 'hello world'})()", panorama.GetPanel("CSGOJsRegistration"))
-    --print(Value\fromLua({1,2,3,4,5}))
-    --print(Value\fromLua("nmsl")\toLua!)
-    --print(Value\fromLua(true)\toLua!)
-    --print(Value\fromLua(123)\toLua!)
-    --print(Value\fromLua(nil)\toLua!)
+    print(tostring(Value\fromLua({1,2,3,4,5})))
+    print(Value\fromLua("nmsl")\toLua!)
+    print(Value\fromLua(true)\toLua!)
+    print(Value\fromLua(123)\toLua!)
+    print(Value\fromLua(nil)\toLua!)
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
 --test( ->
 --        print(tostring(scriptResult\get!\toLocalChecked!!\stringValue!))
