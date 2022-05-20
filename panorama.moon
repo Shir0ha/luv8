@@ -153,21 +153,12 @@ class MaybeLocal
 
 PersistentProxy_mt = {
     __index: (key) =>
-        ret = nil
-        if rawget(@,"this").baseType == "Array" then
-            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toArray!\get(key)\toLocalChecked!!\toLua!)
-        elseif rawget(@,"this").baseType == "Object" then
-            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
-            if type(ret) == "table" then
-                rawset(ret,"parent",rawget(@,"this"))
+        ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
+        if type(ret) == "table" then
+            rawset(ret,"parent",rawget(@,"this"))
         ret
     __newindex: (key, value) =>
-        ret = false
-        if rawget(@,"this").baseType == "Array" then
-            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toArray!\set(key,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
-        elseif rawget(@,"this").baseType == "Object" then
-            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
-        ret
+        HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
     __len: =>
         ret = 0
         if rawget(@,"this").baseType == "Array" then
@@ -220,7 +211,8 @@ class Persistent
     get: => MaybeLocal(HandleScope\createHandle(@this))
     toLua: => -- should NOT be used if the persistent is an object!!!! cuz it will just return the same thing again
         @get!\toLocalChecked!!\toLua!
-    __call: => setmetatable({this: self, parent: nil}, PersistentProxy_mt)
+    __call: =>
+        setmetatable({this: self, parent: nil}, PersistentProxy_mt)
 
 class Value
     new: (val) => @this = cast("void*", val)
@@ -303,7 +295,7 @@ class Function extends Object
         @
     __call: (...) =>
         if @parent==nil then
-            @callAsFunction(Context(Isolate(nativeGetIsolate!)\getCurrentContext![0])\global!\toLocalChecked!!\getInternal!, v8js_args(...))
+            @callAsFunction(Context(Isolate(nativeGetIsolate!)\getCurrentContext!)\global!\toLocalChecked!!\getInternal!, v8js_args(...))
         else
             @callAsFunction(@parent\get!\toLocalChecked!!\getInternal!, v8js_args(...))
 
@@ -337,10 +329,10 @@ class String extends Value
     getInstance: => @this!
 
 class Isolate
-    new: (val) => @this = val
+    new: (val = nativeGetIsolate!) => @this = val
     enter: => v8_dll\get("?Enter@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
     exit: => v8_dll\get("?Exit@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
-    getCurrentContext: => v8_dll\get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(@this, new("int[1]"))
+    getCurrentContext: => MaybeLocal(v8_dll\get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(@this, new("int[1]")))\toLocalChecked!!\getInternal!
     getInternal: => @this
 
 class Context
@@ -359,7 +351,7 @@ class HandleScope
         isolate = Isolate(nativeGetIsolate!)
         isolate\enter!
         @enter!
-        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext![0])\global!\getInternal!
+        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(isolate\getCurrentContext!)\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then @createHandle(ctx[0]) else 0)
         ctx\enter!
         val = func!
@@ -385,7 +377,7 @@ class Script
         tryCatch = TryCatch()
         isolate\enter!
         handleScope\enter!
-        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext![0])\global!\getInternal!
+        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(isolate\getCurrentContext!)\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then handleScope\createHandle(ctx[0]) else 0)
         ctx\enter!-- we NEED try catch here!!!
         tryCatch\enter!
@@ -466,9 +458,10 @@ panorama.loadstring = (jsCode, panel="CSGOJsRegistration") ->
     () -> Script\loadstring(jsCode, panorama.GetPanel(panel))
 
 panorama.open = () ->
-    HandleScope!(() -> Context(Isolate()\getCurrentContext![0])\global!\toLocalChecked!!\toLua!)
+    HandleScope!(() -> Context(Isolate()\getCurrentContext!)\global!\toLocalChecked!!\toLua!)
 
 js = panorama.open()
+js["$"].Msg("Hello from Panorama!")
 
 ret = panorama.loadstring([[
      (function(){
