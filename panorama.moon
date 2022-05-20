@@ -38,7 +38,7 @@ v8js_args = (...) ->
     iArgc = #argTbl
     pArgv = new(string.format("void*[%.f]", iArgc))
     for i = 1, iArgc do
-        pArgv[i - 1] = Value(argTbl[i])\toLocal!
+        pArgv[i - 1] = Value\fromLua(argTbl[i])\getInternal!
     iArgc,pArgv
 is_array = (val) ->
     i=1
@@ -151,59 +151,62 @@ class MaybeLocal
     getInternal: => @this
     toLocalChecked: => Local(@this) unless @this[0] == nullptr
 
-PersistentProxy_mt: {
+PersistentProxy_mt = {
     __index: (key) =>
         ret = nil
-        if @baseType == "Array" then
-            ret = HandleScope()(() -> @get!\toLocalChecked!!\toArray!\get(key)\toLocalChecked!!\toLua!)
-        elseif @baseType == "Object" then
-            ret = HandleScope()(() -> @get!\toLocalChecked!!\toObject!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
+        if rawget(@,"this").baseType == "Array" then
+            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toArray!\get(key)\toLocalChecked!!\toLua!)
+        elseif rawget(@,"this").baseType == "Object" then
+            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
+            if type(ret) == "table" then
+                rawset(ret,"parent",rawget(@,"this"))
         ret
     __newindex: (key, value) =>
         ret = false
-        if @baseType == "Array" then
-            ret = HandleScope()(() -> @get!\toLocalChecked!!\toArray!\set(key,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
-        elseif @baseType == "Object" then
-            ret = HandleScope()(() -> @get!\toLocalChecked!!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
+        if rawget(@,"this").baseType == "Array" then
+            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toArray!\set(key,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
+        elseif rawget(@,"this").baseType == "Object" then
+            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
         ret
     __len: =>
         ret = 0
-        if @baseType == "Array" then
-            ret = HandleScope()(() -> @get!\toLocalChecked!!\toArray!\length!)
-        elseif @baseType == "Object" then
-            ret = HandleScope()(() -> @get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!\toArray!\length!)
+        if rawget(@,"this").baseType == "Array" then
+            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toArray!\length!)
+        elseif rawget(@,"this").baseType == "Object" then
+            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!\toArray!\length!)
         ret
     __pairs: =>
         ret = () -> nil
-        if @baseType == "Object" then
-            HandleScope()(
-            keys = Array(@get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!)
-            current, size = 0, keys\length!
-            ret = () ->
-                current = current+1
-                key = keys[current-1]
-                if current <= size then
-                    return key,@[key]
+        if rawget(@,"this").baseType == "Object" then
+            HandleScope!(() ->
+                keys = Array(rawget(@,"this")\get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!)
+                current, size = 0, keys\length!
+                ret = () ->
+                    current = current+1
+                    key = keys[current-1]
+                    if current <= size then
+                        return key,@[key]
             )
         ret
     __ipairs: =>
         ret = () -> nil
-        if @baseType == "Array" then
-            HandleScope()(
-            current, size = 0, @get!\toLocalChecked!!\toArray!\length!
-            ret = () ->
-                current = current+1
-                if current <= size then
-                    return current,@[current-1]
+        if rawget(@,"this").baseType == "Array" then
+            HandleScope!(() ->
+                current, size = 0, rawget(@,"this")\get!\toLocalChecked!!\toArray!\length!
+                ret = () ->
+                    current = current+1
+                    if current <= size then
+                        return current,@[current-1]
             )
         ret
     __call: (...) =>
-        if @baseType ~= "Function" then safe_error("Attempted to call a non-function value: " .. @baseType)
-        HandleScope()(
-            @get!\toLocalChecked!!\toFunction!(...) -- did not implement recv... will work on it tmr
+        args = { ... }
+        if rawget(@,"this").baseType ~= "Function" then safe_error("Attempted to call a non-function value: " .. rawget(@,"this").baseType)
+        HandleScope!(() ->
+            rawget(@,"this")\get!\toLocalChecked!!\toFunction!\setParent(rawget(@,"parent"))(unpack(args))\toLocalChecked!!\toLua! -- did not implement recv... will work on it tmr
         )
     __tostring: =>
-        HandleScope()(() -> @get!\toLocalChecked!!\stringValue!)
+        HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\stringValue!)
 }
 
 class Persistent
@@ -217,7 +220,7 @@ class Persistent
     get: => MaybeLocal(HandleScope\createHandle(@this))
     toLua: => -- should NOT be used if the persistent is an object!!!! cuz it will just return the same thing again
         @get!\toLocalChecked!!\toLua!
-    __call: => setmetatable({self: self, parent: nil}, PersistentProxy_mt)
+    __call: => setmetatable({this: self, parent: nil}, PersistentProxy_mt)
 
 class Value
     new: (val) => @this = cast("void*", val)
@@ -261,9 +264,9 @@ class Value
         if @isNumber! or @isNumberObject! then return @numberValue!
         if @isString! or @isStringObject! then return @stringValue!
         if @isObject! then -- returns persistent proxy
-            if @isArray! then return @toArray!\toLocal!\globalize!\setType("Array")
-            if @isFunction! then return @toFunction!\toLocal!\globalize!\setType("Function")
-            return @toObject!\toLocal!\globalize!\setType("Object")
+            if @isArray! then return @toArray!\toLocal!\globalize!\setType("Array")!
+            if @isFunction! then return @toFunction!\toLocal!\globalize!\setType("Function")!
+            return @toObject!\toLocal!\globalize!\setType("Object")!
         safe_error("Failed to convert from v8js to lua: Unknown type")
     getInternal: => @this
 
@@ -275,7 +278,7 @@ class Object extends Value
     getPropertyNames: =>
         MaybeLocal(v8_dll\get("?GetPropertyNames@Object@v8@@QAE?AV?$Local@VArray@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, new("int[1]")))
     callAsFunction: (recv, argc, argv) =>
-        MaybeLocal(v8_dll\get("?CallAsFunction@Object@v8@@QAE?AV?$Local@VValue@v8@@@2@V32@HQAV32@@Z", "void*(__thiscall*)(void*,void*,void*,int,void*)")(@this, new("int[1]"), argc, argv))
+        MaybeLocal(v8_dll\get("?CallAsFunction@Object@v8@@QAE?AV?$Local@VValue@v8@@@2@V32@HQAV32@@Z", "void*(__thiscall*)(void*,void*,void*,int,void*)")(@this, new("int[1]"),recv, argc, argv))
     getIdentityHash: => v8_dll\get("?GetIdentityHash@Object@v8@@QAEHXZ", "int(__thiscall*)(void*)")(@this)
 
 class Array extends Object
@@ -292,13 +295,17 @@ class Array extends Object
     length: => v8_dll\get("?Length@Array@v8@@QBEIXZ", "uint32_t(__thiscall*)(void*)")(@this)
 
 class Function extends Object
-    new: (val, parent=Context(Isolate(nativeGetIsolate!)\getCurrentContext!\toLocalChecked!!)\global!\toLocalChecked!!) =>
+    new: (val, parent) =>
         @this = val
         @parent=parent
     setParent: (val) =>
         @parent=val
+        @
     __call: (...) =>
-        @callAsFunction(parent\getInternal!, v8js_args(...))
+        if @parent==nil then
+            @callAsFunction(Context(Isolate(nativeGetIsolate!)\getCurrentContext![0])\global!\toLocalChecked!!\getInternal!, v8js_args(...))
+        else
+            @callAsFunction(@parent\get!\toLocalChecked!!\getInternal!, v8js_args(...))
 
 class Primitive extends Value
     new: (val) => @this = val
@@ -352,7 +359,7 @@ class HandleScope
         isolate = Isolate(nativeGetIsolate!)
         isolate\enter!
         @enter!
-        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInternal!
+        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext![0])\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then @createHandle(ctx[0]) else 0)
         ctx\enter!
         val = func!
@@ -374,11 +381,11 @@ class Script
         __thiscall(cast("void**(__thiscall*)(void*,void*,const char*,const char*)", utils.find_pattern("panorama.dll", "55 8B EC 83 E4 F8 83 EC 64 53 8B D9")), UIEngine\getInstance!)(panel, source, layout)
     loadstring: (str, panel) =>
         isolate = Isolate(nativeGetIsolate!)
-        handleScope = HandleScope()
+        handleScope = HandleScope!
         tryCatch = TryCatch()
         isolate\enter!
         handleScope\enter!
-        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext!\toLocalChecked!!)\global!\getInternal!
+        ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(Isolate()\getCurrentContext![0])\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then handleScope\createHandle(ctx[0]) else 0)
         ctx\enter!-- we NEED try catch here!!!
         tryCatch\enter!
@@ -456,26 +463,31 @@ panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pat
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
 panorama.loadstring = (jsCode, panel="CSGOJsRegistration") ->
-    Script\loadstring(jsCode, panorama.GetPanel(panel))
+    () -> Script\loadstring(jsCode, panorama.GetPanel(panel))
+
+panorama.open = () ->
+    HandleScope!(() -> Context(Isolate()\getCurrentContext![0])\global!\toLocalChecked!!\toLua!)
+
+js = panorama.open()
 
 ret = panorama.loadstring([[
      (function(){
          $.Msg("hello again");
-         return [1,2,3,4,5];
+         return MyPersonaAPI
      })()
-]])
+]])()
 
-print(tostring(ret[0]))
+print(tostring(ret.GetName()))
 
-test = HandleScope()
+test = HandleScope!
 --local scriptResult
 testFunc = ->
     --scriptResult = Script\loadstring("(function(){return 'hello world'})()", panorama.GetPanel("CSGOJsRegistration"))
-    print(tostring(Value\fromLua({1,2,3,4,5})))
-    print(Value\fromLua("nmsl")\toLua!)
-    print(Value\fromLua(true)\toLua!)
-    print(Value\fromLua(123)\toLua!)
-    print(Value\fromLua(nil)\toLua!)
+    --print(tostring(Value\fromLua({1,2,3,4,5})))
+    --print(Value\fromLua("nmsl")\toLua!)
+    --print(Value\fromLua(true)\toLua!)
+    --print(Value\fromLua(123)\toLua!)
+    --print(Value\fromLua(nil)\toLua!)
 test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
 --test( ->
 --        print(tostring(scriptResult\get!\toLocalChecked!!\stringValue!))
