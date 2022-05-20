@@ -1,11 +1,19 @@
+-- Devs
+--------------------------------------------------
+--                                              --
+--										 Yukino --
+--										   dhdj --
+--											   	--
+--------------------------------------------------
 local *
 
 import cast, typeof, new from ffi
-import jmp, proc_bind, virtual_protect from require 'hooks'
+import jmp, proc_bind from require 'hooks'
 
 --#pragma region helper_functions
 safe_error = (msg) ->
-    error(msg) -- Will automatically call shutdown function to make sure nothing goes wrong. to be implemented.
+    -- TODO: Will automatically call shutdown function to make sure nothing goes wrong. to be implemented.
+    error(msg)
 rawget = (tbl, key) ->
     mtb = getmetatable(tbl)
     setmetatable(tbl, nil)
@@ -48,24 +56,7 @@ is_array = (val) ->
         else
             return false
     return i~=1
--- retrive_magic = (ptr, offset, length) ->
---     addr = cast("uintptr_t", ptr)+offset
---     old_prot = new("unsigned long[1]")
---     virtual_protect(addr,length,0x40,old_prot)
---     bytes = cast("uint8_t*", addr)
---     ret = {}
---     for i=1, length do
---         table.insert(ret,bytes[i-1])
---     virtual_protect(addr,length,old_prot[0],old_prot)
---     ret
--- apply_magic = (ptr, offset, data) ->
---     addr = cast("uintptr_t", ptr)+offset
---     old_prot = new("unsigned long[1]")
---     virtual_protect(addr,#data,0x40,old_prot)
---     bytes = cast("uint8_t*", addr)
---     for i,v in ipairs(data) do
---         bytes[i-1]=v
---     virtual_protect(addr,#data,old_prot[0],old_prot)
+
 --#pragma endregion helper_functions
 nullptr = new("void*")
 panorama = {
@@ -101,40 +92,6 @@ nativeFindChildTraverse = vtable_thunk(40, "void*(__thiscall*)(void*,const char*
 nativeGetJavaScriptContextParent = vtable_thunk(218, "void*(__thiscall*)(void*)")
 nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 00 85 C0 75 1B"))), UIEngine\getInstance!)
 --#pragma endregion native_panorama_functions
-
---#pragma region magic
--- run_magic = ->
---     magic_fragment_1=retrive_magic(UIEngine\getInstance![0][113],0x2A5,4)
---     magic_fragment_2=retrive_magic(UIEngine\getInstance![0][113],0x2AF,4)
---     magic_fragment_3=retrive_magic(UIEngine\getInstance![0][113],0x2B9,4)
---     magic_fragment_4=retrive_magic(UIEngine\getInstance![0][113],0x2C6,4)
---     magic_fragment_5=retrive_magic(UIEngine\getInstance![0][113],0x2CC,4)
-
---     magic = {
---         0x50,
---         0x8B, 0x4C, 0x24, 0x14, 0xFF, 0x15, -- 0x10->0x14
---         magic_fragment_1[1],magic_fragment_1[2],magic_fragment_1[3],magic_fragment_1[4],
---         0x8D, 0x4C, 0x24, 0x70, 0xFF, 0x15, -- 0x6C->0x70
---         magic_fragment_2[1],magic_fragment_2[2],magic_fragment_2[3],magic_fragment_2[4],
---         0x8B, 0x4C, 0x24, 0x20, 0xFF, 0x15, -- 0x1C->0x20
---         magic_fragment_3[1],magic_fragment_3[2],magic_fragment_3[3],magic_fragment_3[4],
---         0x83, 0x7C, 0x24, 0x24, 0x00, 0x74, 0x0C, --0x20->0x24
---         0x8B, 0x0D,
---         magic_fragment_4[1],magic_fragment_4[2],magic_fragment_4[3],magic_fragment_4[4],
---         0xFF, 0x15,
---         magic_fragment_5[1],magic_fragment_5[2],magic_fragment_5[3],magic_fragment_5[4],
---         0x58,
---         0x5F, 0x5E, 0x5B, 0x8B, 0xE5, 0x5D,
---         0xC2, 0x1C, 0x00
---     }
-
---     apply_magic(UIEngine\getInstance![0][113],0x29F,magic)
-
--- magic_detection=retrive_magic(UIEngine\getInstance![0][113],0x29F,1)
-
--- if magic_detection[1]==0x8B then
---     run_magic!
---#pragma endregion magic
 
 --#pragma region native_v8_functions
 v8_dll = DllImport("v8.dll")
@@ -194,7 +151,7 @@ PersistentProxy_mt = {
         args = { ... }
         if rawget(@,"this").baseType ~= "Function" then safe_error("Attempted to call a non-function value: " .. rawget(@,"this").baseType)
         HandleScope!(() ->
-            rawget(@,"this")\get!\toLocalChecked!!\toFunction!\setParent(rawget(@,"parent"))(unpack(args))\toLocalChecked!!\toLua! -- did not implement recv... will work on it tmr
+            rawget(@,"this")\get!\toLocalChecked!!\toFunction!\setParent(rawget(@,"parent"))(unpack(args))\toLocalChecked!!\toLua!
         )
     __tostring: =>
         HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\stringValue!)
@@ -379,7 +336,7 @@ class Script
         handleScope\enter!
         ctx = if panel then nativeGetPanelContext(nativeGetJavaScriptContextParent(panel))[0] else Context(isolate\getCurrentContext!)\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then handleScope\createHandle(ctx[0]) else 0)
-        ctx\enter!-- we NEED try catch here!!!
+        ctx\enter!
         tryCatch\enter!
         compiled = MaybeLocal(@compile(panel, str))\toLocalChecked!
         tryCatch\exit!
@@ -472,17 +429,4 @@ ret = panorama.loadstring([[
 
 print(tostring(ret.GetName()))
 
-test = HandleScope!
---local scriptResult
-testFunc = ->
-    --scriptResult = Script\loadstring("(function(){return 'hello world'})()", panorama.GetPanel("CSGOJsRegistration"))
-    --print(tostring(Value\fromLua({1,2,3,4,5})))
-    --print(Value\fromLua("nmsl")\toLua!)
-    --print(Value\fromLua(true)\toLua!)
-    --print(Value\fromLua(123)\toLua!)
-    --print(Value\fromLua(nil)\toLua!)
-test(testFunc, panorama.GetPanel("CSGOJsRegistration"))
---test( ->
---        print(tostring(scriptResult\get!\toLocalChecked!!\stringValue!))
---    )
-return 0
+panorama
