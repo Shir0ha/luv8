@@ -412,19 +412,17 @@ panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pat
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
 panorama.loadstring = (jsCode, panel="CSGOJsRegistration") ->
-    () -> Script\loadstring(jsCode, panorama.GetPanel(panel))
+    () -> Script\loadstring(string.format("(function(){%s})()", jsCode), panorama.GetPanel(panel))
 
-panorama.open = () ->
-    HandleScope!(() -> Context(Isolate()\getCurrentContext!)\global!\toLocalChecked!!\toLua!)
+panorama.open = (panel="CSGOJsRegistration") ->
+    HandleScope!(() -> Context(Isolate()\getCurrentContext!)\global!\toLocalChecked!!\toLua!, panorama.GetPanel(panel))
 
 js = panorama.open()
 js["$"].Msg("Hello from Panorama!")
 
 ret = panorama.loadstring([[
-     (function(){
-         $.Msg("hello again");
+     $.Msg("hello again");
          return MyPersonaAPI
-     })()
 ]])()
 
 print(tostring(ret.GetName()))
