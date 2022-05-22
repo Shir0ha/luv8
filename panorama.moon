@@ -155,6 +155,8 @@ PersistentProxy_mt = {
         )
     __tostring: =>
         HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\stringValue!)
+    __gc: =>
+        rawget(@,"this")\disposeGlobal!
 }
 
 class Persistent
@@ -165,6 +167,8 @@ class Persistent
         @baseType=val
         @
     getInternal: => @this
+    disposeGlobal: =>
+        v8_dll\get("?DisposeGlobal@V8@v8@@CAXPAPAVObject@internal@2@@Z","void(__cdecl*)(void*)")(@this)
     get: => MaybeLocal(HandleScope\createHandle(@this))
     toLua: => -- should NOT be used if the persistent is an object!!!! cuz it will just return the same thing again
         @get!\toLocalChecked!!\toLua!
