@@ -179,6 +179,7 @@ class Value
         if type(val) == "number" then return Number(nativeGetIsolate!,val)\getInstance!
         if type(val) == "string" then return String(nativeGetIsolate!,val)\getInstance!
         if type(val) == "table" and is_array(val) then return Array\fromLua(nativeGetIsolate!,val)
+        if type(val) == "table" then return Object\fromLua(nativeGetIsolate!,val)
         safe_error("Failed to convert from lua to v8js: Unknown type")
     isUndefined: => v8_dll\get("?IsUndefined@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isNull: => v8_dll\get("?IsNull@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
@@ -221,6 +222,11 @@ class Value
 
 class Object extends Value
     new: (val) => @this = val
+    fromLua: (isolate, val) =>
+        obj = Object(MaybeLocal(v8_dll\get("?New@Object@v8@@SA?AV?$Local@VObject@v8@@@2@PAVIsolate@2@@Z","void*(__cdecl*)(void*,void*)")(new("int[1]"), isolate))\toLocalChecked!!\getInternal!)
+        for i,v in pairs(val) do
+            obj\set(Value\fromLua(i)\getInternal!,Value\fromLua(v)\getInternal!)
+        obj
     get: (key) =>
         MaybeLocal(v8_dll\get("?Get@Object@v8@@QAE?AV?$Local@VValue@v8@@@2@V32@@Z", "void*(__thiscall*)(void*,void*,void*)")(@this, new("int[1]"), key))
     set: (key, value) => v8_dll\get("?Set@Object@v8@@QAE_NV?$Local@VValue@v8@@@2@0@Z", "bool(__thiscall*)(void*,void*,void*)")(@this, key, value)
@@ -255,6 +261,15 @@ class Function extends Object
             @callAsFunction(Context(Isolate(nativeGetIsolate!)\getCurrentContext!)\global!\toLocalChecked!!\getInternal!, v8js_args(...))
         else
             @callAsFunction(@parent\get!\toLocalChecked!!\getInternal!, v8js_args(...))
+
+class ObjectTemplate
+    new: =>
+        @this = MaybeLocal(v8_dll\get("?New@ObjectTemplate@v8@@SA?AV?$Local@VObjectTemplate@v8@@@2@XZ", "void*(__cdecl*)(void*)")(new("int[1]")))\toLocalChecked!
+
+class FunctionTemplate
+    new: (callback) =>
+        @this = MaybeLocal(v8_dll\get("?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PAVIsolate@2@P6AXABV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@@Z", "void*(__cdecl*)(void*,void*,void*,void*,void*,int,int)")(new("int[1]"),nativeGetIsolate!,callback,new("int[1]"),new("int[1]"),0,0))\toLocalChecked!
+
 
 class Primitive extends Value
     new: (val) => @this = val
@@ -416,15 +431,5 @@ panorama.loadstring = (jsCode, panel="CSGOJsRegistration") ->
 
 panorama.open = (panel="CSGOJsRegistration") ->
     HandleScope!(() -> Context(Isolate()\getCurrentContext!)\global!\toLocalChecked!!\toLua!, panorama.GetPanel(panel))
-
-js = panorama.open()
-js["$"].Msg("Hello from Panorama!")
-
-ret = panorama.loadstring([[
-     $.Msg("hello again");
-         return MyPersonaAPI
-]])()
-
-print(tostring(ret.GetName()))
 
 panorama
