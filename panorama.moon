@@ -30,10 +30,13 @@ table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->
     addr = cast("void***", utils.find_interface(module, interface)) or safe_error(interface .. " is nil.")
     __thiscall(cast(typedef, addr[0][index]), addr)
-vtable_thunk = (index, typedef) -> (instance, ...) ->
-    assert(instance)
-    addr = cast("void***", instance)
-    __thiscall(cast(typedef, addr[0][index]), addr)(...)
+
+interface_ptr = typeof("void***")
+vtable_entry = (instance, i, ct) -> cast(ct, cast(interface_ptr, instance)[0][i])
+vtable_thunk = (i, ct) ->
+    t = typeof(ct)
+    (instance, ...) -> vtable_entry(instance, i, t)(instance, ...)
+
 follow_call = (ptr) ->
     insn = cast("uint8_t*", ptr)
     switch insn[0]
