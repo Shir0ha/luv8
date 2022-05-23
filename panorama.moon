@@ -421,7 +421,7 @@ panelArray = cast(panelList, cast("uintptr_t", UIEngine\getInstance!) + panelArr
 
 panorama.GetPanel = (panelName) ->
     cachedPanel = panorama.panelIDs[panelName]
-    if cachedPanel ~= nil then
+    if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) then
         return cachedPanel
     panorama.panelIDs = {}
 
