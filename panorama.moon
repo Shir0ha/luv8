@@ -1,14 +1,14 @@
 -- Devs
 --------------------------------------------------
 --                                              --
---										 Yukino --
---									  agapornis --
---											   	--
+--                                       Yukino --
+--                                    agapornis --
+--                                              --
 --------------------------------------------------
 local *
 
 import cast, typeof, new from ffi
-import jmp, proc_bind from require 'hooks'
+import proc_bind from require 'hooks'
 
 --#pragma region helper_functions
 safe_error = (msg) ->
@@ -30,13 +30,11 @@ table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->
     addr = cast("void***", utils.find_interface(module, interface)) or safe_error(interface .. " is nil.")
     __thiscall(cast(typedef, addr[0][index]), addr)
-
 interface_ptr = typeof("void***")
 vtable_entry = (instance, i, ct) -> cast(ct, cast(interface_ptr, instance)[0][i])
 vtable_thunk = (i, ct) ->
     t = typeof(ct)
     (instance, ...) -> vtable_entry(instance, i, t)(instance, ...)
-
 follow_call = (ptr) ->
     insn = cast("uint8_t*", ptr)
     switch insn[0]
@@ -54,7 +52,7 @@ v8js_args = (...) ->
 is_array = (val) ->
     i=1
     for _ in pairs(val) do
-        if val[i] ~=nil then
+        if val[i] ~= nil then
             i=i+1
         else
             return false
@@ -85,8 +83,8 @@ nativeIsValidPanelPointer = UIEngine\get(36, "bool(__thiscall*)(void*,void const
 nativeGetLastDispatchedEventTargetPanel = UIEngine\get(56, "void*(__thiscall*)(void*)")
 nativeCompileRunScript = UIEngine\get(113, "void****(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
 nativeRunScriptSig=utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?")
-if nativeRunScriptSig==nil then
-    nativeRunScriptSig=utils.find_pattern("panorama.dll", "E8 ? ? ? ? 50 8B 4C 24 14 FF 15 ? ? ? ?")
+if nativeRunScriptSig == nil then
+    nativeRunScriptSig = utils.find_pattern("panorama.dll", "E8 ? ? ? ? 50 8B 4C 24 14 FF 15 ? ? ? ?")
 nativeRunScript = __thiscall(cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(nativeRunScriptSig)), UIEngine\getInstance!)
 nativeGetV8GlobalContext = UIEngine\get(123, "void*(__thiscall*)(void*)")
 nativeGetIsolate = UIEngine\get(129, "void*(__thiscall*)(void*)")
@@ -97,8 +95,8 @@ nativeGetJavaScriptContextParent = vtable_thunk(218, "void*(__thiscall*)(void*)"
 nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 00 85 C0 75 1B"))), UIEngine\getInstance!)
 jsContexts = {}
 getJavaScriptContextParent = (panel) ->
-    if jsContexts[panel]~=nil then return jsContexts[panel]
-    jsContexts[panel]=nativeGetJavaScriptContextParent(panel)
+    if jsContexts[panel] ~= nil then return jsContexts[panel]
+    jsContexts[panel] = nativeGetJavaScriptContextParent(panel)
     jsContexts[panel]
 --#pragma endregion native_panorama_functions
 
@@ -119,15 +117,11 @@ class MaybeLocal
 
 PersistentProxy_mt = {
     __index: (key) =>
-        if rawget(@,"internal")[key]~=nil then
-         return rawget(@,"internal")[key]
         ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
         if type(ret) == "table" then
             rawset(ret,"parent",rawget(@,"this"))
-            rawget(@,"internal")[key]=ret
         ret
     __newindex: (key, value) =>
-        rawget(@,"internal")[key]=nil
         HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
     __len: =>
         ret = 0
@@ -146,7 +140,7 @@ PersistentProxy_mt = {
                     current = current+1
                     key = keys[current-1]
                     if current <= size then
-                        return key,@[key]
+                        return key, @[key]
             )
         ret
     __ipairs: =>
@@ -157,7 +151,7 @@ PersistentProxy_mt = {
                 ret = () ->
                     current = current+1
                     if current <= size then
-                        return current,@[current-1]
+                        return current, @[current-1]
             )
         ret
     __call: (...) =>
@@ -187,7 +181,7 @@ class Persistent
         @get!\toLocalChecked!!\toLua!
     getIdentityHash: => v8_dll\get("?GetIdentityHash@Object@v8@@QAEHXZ", "int(__thiscall*)(void*)")(@this)
     __call: =>
-        setmetatable({this: self, parent: nil, internal: {}}, PersistentProxy_mt)
+        setmetatable({this: self, parent: nil}, PersistentProxy_mt)
 
 class Value
     new: (val) => @this = cast("void*", val)
@@ -424,7 +418,7 @@ panelArray = cast(panelList, cast("uintptr_t", UIEngine\getInstance!) + panelArr
 
 panorama.GetPanel = (panelName) ->
     cachedPanel = panorama.panelIDs[panelName]
-    if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) then
+    if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and ffi.string(nativeGetID(cachedPanel))==panelName then
         return cachedPanel
     panorama.panelIDs = {}
 
