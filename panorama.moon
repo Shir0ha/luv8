@@ -1,10 +1,10 @@
 -- Devs
---------------------------------------------------
---                                              --
---                                       Yukino --
---                                    agapornis --
---                                              --
---------------------------------------------------
+-------------------------------------------------------
+--                                                   --
+-- Yukino                                            --
+-- agapornis: 46 55 43 4B 20 50 61 6E 6F 72 61 6D 61 --
+--                                                   --
+-------------------------------------------------------
 local *
 
 import cast, typeof, new from ffi
@@ -12,7 +12,8 @@ import proc_bind from require 'hooks'
 
 --#pragma region helper_functions
 safe_error = (msg) ->
-    -- TODO: Will automatically call shutdown function to make sure nothing goes wrong. to be implemented.
+    for _,v in pairs(persistentTbl) do
+        Persistent(v)\disposeGlobal!
     error(msg)
 rawget = (tbl, key) ->
     mtb = getmetatable(tbl)
@@ -61,6 +62,7 @@ is_array = (val) ->
 --#pragma endregion helper_functions
 nullptr = new("void*")
 intbuf = new("int[1]")
+
 panorama = {
     panelIDs: {}
 }
@@ -82,10 +84,7 @@ UIEngine = vtable(vtable_bind("panorama.dll", "PanoramaUIEngine001", 11, "void*(
 nativeIsValidPanelPointer = UIEngine\get(36, "bool(__thiscall*)(void*,void const*)")
 nativeGetLastDispatchedEventTargetPanel = UIEngine\get(56, "void*(__thiscall*)(void*)")
 nativeCompileRunScript = UIEngine\get(113, "void****(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
-nativeRunScriptSig=utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?")
-if nativeRunScriptSig == nil then
-    nativeRunScriptSig = utils.find_pattern("panorama.dll", "E8 ? ? ? ? 50 8B 4C 24 14 FF 15 ? ? ? ?")
-nativeRunScript = __thiscall(cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(nativeRunScriptSig)), UIEngine\getInstance!)
+nativeRunScript = __thiscall(cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?"))), UIEngine\getInstance!)
 nativeGetV8GlobalContext = UIEngine\get(123, "void*(__thiscall*)(void*)")
 nativeGetIsolate = UIEngine\get(129, "void*(__thiscall*)(void*)")
 nativeGetParent = vtable_thunk(25, "void*(__thiscall*)(void*)")
@@ -103,11 +102,16 @@ getJavaScriptContextParent = (panel) ->
 --#pragma region native_v8_functions
 v8_dll = DllImport("v8.dll")
 
+persistentTbl = {}
+
 class Local
     new: (val) => @this = cast("void**", val)
     getInternal: => @this
     globalize: =>
-        Persistent(v8_dll\get("?GlobalizeReference@V8@v8@@CAPAPAVObject@internal@2@PAVIsolate@42@PAPAV342@@Z", "void*(__cdecl*)(void*,void*)")(nativeGetIsolate!, @this[0]))
+        pPersistent = v8_dll\get("?GlobalizeReference@V8@v8@@CAPAPAVObject@internal@2@PAVIsolate@42@PAPAV342@@Z", "void*(__cdecl*)(void*,void*)")(nativeGetIsolate!, @this[0])
+        persistent = Persistent(pPersistent)
+        persistentTbl[persistent\getIdentityHash!] = pPersistent
+        persistent
     __call: => Value(@this[0])
 
 class MaybeLocal
