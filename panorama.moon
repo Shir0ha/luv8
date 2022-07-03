@@ -7,8 +7,19 @@
 -------------------------------------------------------
 local *
 
+_INFO = {_VERSION: 1}
+setmetatable(_INFO,{
+    __call: => self._VERSION,
+    __tostring: => self._VERSION
+})
+
 import cast, typeof, new from ffi
-import proc_bind from require 'hooks'
+
+--#pragma region compatibility_layer
+ev0lve = _G == nil
+find_pattern = ev0lve and utils.find_pattern or memory.find_pattern
+create_interface = ev0lve and utils.find_interface or memory.create_interface
+--#pragma endregion compatibility_layer
 
 --#pragma region helper_functions
 safe_error = (msg) ->
@@ -29,13 +40,19 @@ rawset = (tbl, key, value) ->
 __thiscall = (func, this) -> (...) -> func(this, ...)
 table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->
-    addr = cast("void***", utils.find_interface(module, interface)) or safe_error(interface .. " is nil.")
+    addr = cast("void***", create_interface(module, interface)) or safe_error(interface .. " is nil.")
     __thiscall(cast(typedef, addr[0][index]), addr)
 interface_ptr = typeof("void***")
 vtable_entry = (instance, i, ct) -> cast(ct, cast(interface_ptr, instance)[0][i])
 vtable_thunk = (i, ct) ->
     t = typeof(ct)
     (instance, ...) -> vtable_entry(instance, i, t)(instance, ...)
+proc_bind = (() ->
+    fnGetProcAddress = cast("uint32_t(__stdcall*)(uint32_t, const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", " FF 15 ? ? ? ? A3 ? ? ? ? EB 05")) + 2)[0][0])
+    fnGetModuleHandle = cast("uint32_t(__stdcall*)(const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", " FF 15 ? ? ? ? 85 C0 74 0B")) + 2)[0][0])
+    (module_name, function_name, typedef) ->
+        cast(typeof(typedef), fnGetProcAddress(fnGetModuleHandle(module_name), function_name))
+    )!
 follow_call = (ptr) ->
     insn = cast("uint8_t*", ptr)
     switch insn[0]
@@ -46,7 +63,7 @@ follow_call = (ptr) ->
 v8js_args = (...) ->
     argTbl = {...}
     iArgc = #argTbl
-    pArgv = new(string.format("void*[%.f]", iArgc))
+    pArgv = new("void*[%.f]"\format(iArgc))
     for i = 1, iArgc do
         pArgv[i - 1] = Value\fromLua(argTbl[i])\getInternal!
     iArgc,pArgv
@@ -84,14 +101,14 @@ UIEngine = vtable(vtable_bind("panorama.dll", "PanoramaUIEngine001", 11, "void*(
 nativeIsValidPanelPointer = UIEngine\get(36, "bool(__thiscall*)(void*,void const*)")
 nativeGetLastDispatchedEventTargetPanel = UIEngine\get(56, "void*(__thiscall*)(void*)")
 nativeCompileRunScript = UIEngine\get(113, "void****(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
-nativeRunScript = __thiscall(cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?"))), UIEngine\getInstance!)
+nativeRunScript = __thiscall(cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?"))), UIEngine\getInstance!)
 nativeGetV8GlobalContext = UIEngine\get(123, "void*(__thiscall*)(void*)")
 nativeGetIsolate = UIEngine\get(129, "void*(__thiscall*)(void*)")
 nativeGetParent = vtable_thunk(25, "void*(__thiscall*)(void*)")
 nativeGetID = vtable_thunk(9, "const char*(__thiscall*)(void*)")
 nativeFindChildTraverse = vtable_thunk(40, "void*(__thiscall*)(void*,const char*)")
 nativeGetJavaScriptContextParent = vtable_thunk(218, "void*(__thiscall*)(void*)")
-nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", follow_call(utils.find_pattern("panorama.dll", "E8 ? ? ? ? 8B 00 85 C0 75 1B"))), UIEngine\getInstance!)
+nativeGetPanelContext = __thiscall(cast("void***(__thiscall*)(void*,void*)", follow_call(find_pattern("panorama.dll", "E8 ? ? ? ? 8B 00 85 C0 75 1B"))), UIEngine\getInstance!)
 jsContexts = {}
 getJavaScriptContextParent = (panel) ->
     if jsContexts[panel] ~= nil then return jsContexts[panel]
@@ -358,7 +375,7 @@ class TryCatch
 
 class Script
     compile: (panel, source, layout = "") =>
-        __thiscall(cast("void**(__thiscall*)(void*,void*,const char*,const char*)", utils.find_pattern("panorama.dll", "55 8B EC 83 E4 F8 83 EC 64 53 8B D9")), UIEngine\getInstance!)(panel, source, layout)
+        __thiscall(cast("void**(__thiscall*)(void*,void*,const char*,const char*)", find_pattern("panorama.dll", "55 8B EC 83 E4 F8 83 EC 64 53 8B D9")), UIEngine\getInstance!)(panel, source, layout)
     loadstring: (str, panel) =>
         isolate = Isolate(nativeGetIsolate!)
         handleScope = HandleScope!
@@ -435,17 +452,20 @@ panorama.GetPanel = (panelName) ->
                 pPanel = v
                 break
     if pPanel == nullptr then
-        safe_error("Failed to get target panel " .. tostring(panelName))
+        safe_error("Failed to get target panel %s (EAX == 0)"\format(tostring(panelName)))
     pPanel
 
 panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pathToXMLContext="panorama/layout/base.xml") ->
-    if not nativeIsValidPanelPointer(panel) then safe_error("Invalid panel")
+    if not nativeIsValidPanelPointer(panel) then safe_error("Invalid panel pointer (EAX == 0)")
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
 panorama.loadstring = (jsCode, panel="CSGOJsRegistration") ->
-    () -> Script\loadstring(string.format("(function(){%s})()", jsCode), panorama.GetPanel(panel))
+    Script\loadstring("(()=>{%s})"\format(jsCode), panorama.GetPanel(panel))
 
 panorama.open = (panel="CSGOJsRegistration") ->
     HandleScope!(() -> Context(Isolate()\getCurrentContext!)\global!\toLocalChecked!!\toLua!, panorama.GetPanel(panel))
 
+panorama.info = _INFO
+
+setmetatable(panorama,{__tostring: => "luv8 panorama library v%.1f"\format(_INFO._VERSION)})
 panorama
