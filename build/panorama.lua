@@ -1,6 +1,6 @@
 local _INFO, cast, typeof, new, ev0lve, find_pattern, create_interface, safe_error, rawget, rawset, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
-  _VERSION = 1
+  _VERSION = 1.1
 }
 setmetatable(_INFO, {
   __call = function(self)
@@ -1246,7 +1246,7 @@ ffi.metatype(CUtlVector_Constructor_t, {
 panelList = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
 panelArrayOffset = cast("unsigned int*", cast("uintptr_t**", UIEngine:getInstance())[0][36] + 21)[0]
 panelArray = cast(panelList, cast("uintptr_t", UIEngine:getInstance()) + panelArrayOffset)
-panorama.GetPanel = function(panelName)
+panorama.GetPanel = function(panelName, fallback)
   local cachedPanel = panorama.panelIDs[panelName]
   if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and ffi.string(nativeGetID(cachedPanel)) == panelName then
     return cachedPanel
@@ -1264,7 +1264,11 @@ panorama.GetPanel = function(panelName)
     end
   end
   if pPanel == nullptr then
-    safe_error(("Failed to get target panel %s (EAX == 0)"):format(tostring(panelName)))
+    if fallback ~= nil then
+      pPanel = panorama.GetPanel(fallback)
+    else
+      safe_error(("Failed to get target panel %s (EAX == 0)"):format(tostring(panelName)))
+    end
   end
   return pPanel
 end
@@ -1284,7 +1288,14 @@ panorama.loadstring = function(jsCode, panel)
   if panel == nil then
     panel = "CSGOJsRegistration"
   end
-  return Script:loadstring(("(()=>{%s})"):format(jsCode), panorama.GetPanel(panel))
+  local fallback = "CSGOJsRegistration"
+  if panel == "CSGOMainMenu" then
+    fallback = "CSGOHub"
+  end
+  if panel == "CSGOHub" then
+    fallback = "CSGOMainMenu"
+  end
+  return Script:loadstring(("(()=>{%s})"):format(jsCode), panorama.GetPanel(panel, fallback))
 end
 panorama.open = function(panel)
   if panel == nil then

@@ -7,7 +7,7 @@
 -------------------------------------------------------
 local *
 
-_INFO = {_VERSION: 1}
+_INFO = {_VERSION: 1.1}
 setmetatable(_INFO,{
     __call: => self._VERSION,
     __tostring: => self._VERSION
@@ -441,7 +441,7 @@ panelList = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
 panelArrayOffset = cast("unsigned int*", cast("uintptr_t**", UIEngine\getInstance!)[0][36] + 21)[0]
 panelArray = cast(panelList, cast("uintptr_t", UIEngine\getInstance!) + panelArrayOffset)
 
-panorama.GetPanel = (panelName) ->
+panorama.GetPanel = (panelName, fallback) ->
     cachedPanel = panorama.panelIDs[panelName]
     if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and ffi.string(nativeGetID(cachedPanel))==panelName then
         return cachedPanel
@@ -456,7 +456,10 @@ panorama.GetPanel = (panelName) ->
                 pPanel = v
                 break
     if pPanel == nullptr then
-        safe_error("Failed to get target panel %s (EAX == 0)"\format(tostring(panelName)))
+        if fallback ~= nil then
+            pPanel = panorama.GetPanel(fallback)
+        else
+            safe_error("Failed to get target panel %s (EAX == 0)"\format(tostring(panelName)))
     pPanel
 
 panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pathToXMLContext="panorama/layout/base.xml") ->
@@ -464,7 +467,10 @@ panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pat
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
 panorama.loadstring = (jsCode, panel="CSGOJsRegistration") ->
-    Script\loadstring("(()=>{%s})"\format(jsCode), panorama.GetPanel(panel))
+    fallback = "CSGOJsRegistration"
+    if panel == "CSGOMainMenu" then fallback = "CSGOHub"
+    if panel == "CSGOHub" then fallback = "CSGOMainMenu"
+    Script\loadstring("(()=>{%s})"\format(jsCode), panorama.GetPanel(panel,fallback))
 
 panorama.open = (panel="CSGOJsRegistration") ->
     HandleScope!(() -> Context(Isolate()\getCurrentContext!)\global!\toLocalChecked!!\toLua!, panorama.GetPanel(panel))
