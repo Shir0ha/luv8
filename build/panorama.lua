@@ -1,4 +1,4 @@
-local _INFO, cast, typeof, new, ev0lve, find_pattern, create_interface, safe_error, rawgetImpl, rawsetImpl, rawget, rawset, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
+local _INFO, cast, typeof, new, ev0lve, find_pattern, create_interface, safe_mode, _error, error, exception, rawgetImpl, rawsetImpl, rawget, rawset, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
   _VERSION = 1.1
 }
@@ -17,11 +17,16 @@ end
 ev0lve = _G == nil
 find_pattern = ev0lve and utils.find_pattern or memory.find_pattern
 create_interface = ev0lve and utils.find_interface or memory.create_interface
-safe_error = function(msg)
+safe_mode = xpcall and true or false
+_error = error
+error = function(msg)
   for _, v in pairs(persistentTbl) do
     Persistent(v):disposeGlobal()
   end
-  return error(msg)
+  return _error(msg)
+end
+exception = function(msg)
+  return print("Caught exception in HandleScope: ", tostring(msg))
 end
 rawgetImpl = function(tbl, key)
   local mtb = getmetatable(tbl)
@@ -36,8 +41,12 @@ rawsetImpl = function(tbl, key, value)
   tbl[key] = value
   return setmetatable(tbl, mtb)
 end
-rawget = rawget == nil and rawgetImpl or rawget
-rawset = rawset == nil and rawsetImpl or rawset
+if not (rawget) then
+  rawget = rawgetImpl
+end
+if not (rawset) then
+  rawset = rawsetImpl
+end
 __thiscall = function(func, this)
   return function(...)
     return func(this, ...)
@@ -51,7 +60,7 @@ table_copy = function(t)
   return _tbl_0
 end
 vtable_bind = function(module, interface, index, typedef)
-  local addr = cast("void***", create_interface(module, interface)) or safe_error(interface .. " is nil.")
+  local addr = cast("void***", create_interface(module, interface)) or error(interface .. " is nil.")
   return __thiscall(cast(typedef, addr[0][index]), addr)
 end
 interface_ptr = typeof("void***")
@@ -329,7 +338,7 @@ PersistentProxy_mt = {
       ...
     }
     if this.baseType ~= "Function" then
-      safe_error("Attempted to call a non-function value: " .. this.baseType)
+      error("Attempted to call a non-function value: " .. this.baseType)
     end
     return HandleScope()(function()
       local rawReturn = this:get():toLocalChecked()():toFunction():setParent(rawget(self, "parent"))(unpack(args)):toLocalChecked()
@@ -424,7 +433,7 @@ do
       if type(val) == "table" then
         return Object:fromLua(nativeGetIsolate(), val)
       end
-      return safe_error("Failed to convert from lua to v8js: Unknown type")
+      return error("Failed to convert from lua to v8js: Unknown type")
     end,
     isUndefined = function(self)
       return v8_dll:get("?IsUndefined@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(self.this)
@@ -506,7 +515,7 @@ do
         end
         return self:toObject():toLocal():globalize():setType("Object")()
       end
-      return safe_error("Failed to convert from v8js to lua: Unknown type")
+      return error("Failed to convert from v8js to lua: Unknown type")
     end,
     getInternal = function(self)
       return self.this
@@ -1092,7 +1101,15 @@ do
         end
       end)())
       ctx:enter()
-      local val = func()
+      local val = nil
+      if safe_mode then
+        local status, ret = xpcall(func, exception)
+        if status then
+          val = ret
+        end
+      else
+        val = func()
+      end
       ctx:exit()
       self:exit()
       isolate:exit()
@@ -1190,6 +1207,11 @@ do
       if not (compiled == nil) then
         ret = MaybeLocal(nativeRunScript(intbuf, panel, compiled():getInternal(), 0, false)):toLocalChecked()():toLua()
       end
+      if not (((not safe_mode) or ret)) then
+        ret = (function()
+          return print("WARNING: Attempted to call nullptr")
+        end)
+      end
       ctx:exit()
       handleScope:exit()
       isolate:exit()
@@ -1277,7 +1299,7 @@ panorama.GetPanel = function(panelName, fallback)
     if fallback ~= nil then
       pPanel = panorama.GetPanel(fallback)
     else
-      safe_error(("Failed to get target panel %s (EAX == 0)"):format(tostring(panelName)))
+      error(("Failed to get target panel %s (EAX == 0)"):format(tostring(panelName)))
     end
   end
   return pPanel
@@ -1290,7 +1312,7 @@ panorama.RunScript = function(jsCode, panel, pathToXMLContext)
     pathToXMLContext = "panorama/layout/base.xml"
   end
   if not nativeIsValidPanelPointer(panel) then
-    safe_error("Invalid panel pointer (EAX == 0)")
+    error("Invalid panel pointer (EAX == 0)")
   end
   return nativeCompileRunScript(panel, jsCode, pathToXMLContext, 8, 10, false)
 end

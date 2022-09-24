@@ -8,6 +8,7 @@
 local *
 
 _INFO = {_VERSION: 1.1}
+
 setmetatable(_INFO,{
     __call: => self._VERSION,
     __tostring: => self._VERSION
@@ -19,13 +20,17 @@ import cast, typeof, new from ffi
 ev0lve = _G == nil -- ev0lve or fatality since they have the same api
 find_pattern = ev0lve and utils.find_pattern or memory.find_pattern
 create_interface = ev0lve and utils.find_interface or memory.create_interface
+safe_mode = xpcall and true or false
 --#pragma endregion compatibility_layer
 
 --#pragma region helper_functions
-safe_error = (msg) ->
+_error = error
+error = (msg) ->
     for _,v in pairs(persistentTbl) do
         Persistent(v)\disposeGlobal!
-    error(msg)
+    _error(msg)
+exception = (msg) ->
+    print("Caught exception in HandleScope: ", tostring(msg))
 rawgetImpl = (tbl, key) ->
     mtb = getmetatable(tbl)
     setmetatable(tbl, nil)
@@ -38,12 +43,12 @@ rawsetImpl = (tbl, key, value) ->
     tbl[key] = value
     setmetatable(tbl, mtb)
 --should increase performance on primordial
-rawget = rawget == nil and rawgetImpl or rawget
-rawset = rawset == nil and rawsetImpl or rawset
+rawget = rawgetImpl unless rawget
+rawset = rawsetImpl unless rawset
 __thiscall = (func, this) -> (...) -> func(this, ...)
 table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->
-    addr = cast("void***", create_interface(module, interface)) or safe_error(interface .. " is nil.")
+    addr = cast("void***", create_interface(module, interface)) or error(interface .. " is nil.")
     __thiscall(cast(typedef, addr[0][index]), addr)
 interface_ptr = typeof("void***")
 vtable_entry = (instance, i, ct) -> cast(ct, cast(interface_ptr, instance)[0][i])
@@ -186,7 +191,7 @@ PersistentProxy_mt = {
     __call: (...) =>
         this = rawget(@,"this")
         args = { ... }
-        if this.baseType ~= "Function" then safe_error("Attempted to call a non-function value: " .. this.baseType)
+        if this.baseType ~= "Function" then error("Attempted to call a non-function value: " .. this.baseType)
         HandleScope!(() ->
             rawReturn = this\get!\toLocalChecked!!\toFunction!\setParent(rawget(@,"parent"))(unpack(args))\toLocalChecked!
             if rawReturn == nil then
@@ -228,7 +233,7 @@ class Value
         if type(val) == "string" then return String(nativeGetIsolate!,val)\getInstance!
         if type(val) == "table" and is_array(val) then return Array\fromLua(nativeGetIsolate!,val)
         if type(val) == "table" then return Object\fromLua(nativeGetIsolate!,val)
-        safe_error("Failed to convert from lua to v8js: Unknown type")
+        error("Failed to convert from lua to v8js: Unknown type")
     isUndefined: => v8_dll\get("?IsUndefined@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isNull: => v8_dll\get("?IsNull@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isBoolean: => v8_dll\get("?IsBoolean@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
@@ -265,7 +270,7 @@ class Value
             if @isArray! then return @toArray!\toLocal!\globalize!\setType("Array")!
             if @isFunction! then return @toFunction!\toLocal!\globalize!\setType("Function")!
             return @toObject!\toLocal!\globalize!\setType("Object")!
-        safe_error("Failed to convert from v8js to lua: Unknown type")
+        error("Failed to convert from v8js to lua: Unknown type")
     getInternal: => @this
 
 class Object extends Value
@@ -374,7 +379,12 @@ class HandleScope
         ctx = if panel then nativeGetPanelContext(getJavaScriptContextParent(panel))[0] else Context(isolate\getCurrentContext!)\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then @createHandle(ctx[0]) else 0)
         ctx\enter!
-        val = func!
+        val = nil
+        if safe_mode then
+            status, ret = xpcall(func,exception)
+            if status then val = ret
+        else
+            val = func!
         ctx\exit!
         @exit!
         isolate\exit!
@@ -404,6 +414,7 @@ class Script
         compiled = MaybeLocal(@compile(panel, str))\toLocalChecked!
         tryCatch\exit!
         ret = MaybeLocal(nativeRunScript(intbuf, panel, compiled!\getInternal!, 0, false))\toLocalChecked!!\toLua! unless compiled==nil -- we do not have to trycatch this one because it already does it itself!
+        ret = (() -> print("WARNING: Attempted to call nullptr")) unless ((not safe_mode) or ret) -- lol preventing error, this way we can exit handlescope peacefully
         ctx\exit!
         handleScope\exit!
         isolate\exit!
@@ -470,11 +481,11 @@ panorama.GetPanel = (panelName, fallback) ->
         if fallback ~= nil then
             pPanel = panorama.GetPanel(fallback)
         else
-            safe_error("Failed to get target panel %s (EAX == 0)"\format(tostring(panelName)))
+            error("Failed to get target panel %s (EAX == 0)"\format(tostring(panelName)))
     pPanel
 
 panorama.RunScript = (jsCode, panel=panorama.GetPanel("CSGOJsRegistration"), pathToXMLContext="panorama/layout/base.xml") ->
-    if not nativeIsValidPanelPointer(panel) then safe_error("Invalid panel pointer (EAX == 0)")
+    if not nativeIsValidPanelPointer(panel) then error("Invalid panel pointer (EAX == 0)")
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
 panorama.loadstring = (jsCode, panel="CSGOJsRegistration") ->
