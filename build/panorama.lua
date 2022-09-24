@@ -1,4 +1,4 @@
-local _INFO, cast, typeof, new, ev0lve, find_pattern, create_interface, safe_error, rawget, rawset, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
+local _INFO, cast, typeof, new, ev0lve, find_pattern, create_interface, safe_error, rawgetImpl, rawsetImpl, rawget, rawset, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
   _VERSION = 1.1
 }
@@ -23,19 +23,21 @@ safe_error = function(msg)
   end
   return error(msg)
 end
-rawget = function(tbl, key)
+rawgetImpl = function(tbl, key)
   local mtb = getmetatable(tbl)
   setmetatable(tbl, nil)
   local res = tbl[key]
   setmetatable(tbl, mtb)
   return res
 end
-rawset = function(tbl, key, value)
+rawsetImpl = function(tbl, key, value)
   local mtb = getmetatable(tbl)
   setmetatable(tbl, nil)
   tbl[key] = value
   return setmetatable(tbl, mtb)
 end
+rawget = rawget == nil and rawgetImpl or rawget
+rawset = rawset == nil and rawsetImpl or rawset
 __thiscall = function(func, this)
   return function(...)
     return func(this, ...)
@@ -252,40 +254,44 @@ do
 end
 PersistentProxy_mt = {
   __index = function(self, key)
+    local this = rawget(self, "this")
     local ret = HandleScope()(function()
-      return rawget(self, "this"):get():toLocalChecked()():toObject():get(Value:fromLua(key):getInternal()):toLocalChecked()():toLua()
+      return this:get():toLocalChecked()():toObject():get(Value:fromLua(key):getInternal()):toLocalChecked()():toLua()
     end)
     if type(ret) == "table" then
-      rawset(ret, "parent", rawget(self, "this"))
+      rawset(ret, "parent", this)
     end
     return ret
   end,
   __newindex = function(self, key, value)
+    local this = rawget(self, "this")
     return HandleScope()(function()
-      return rawget(self, "this"):get():toLocalChecked()():toObject():set(Value:fromLua(key):getInternal(), Value:fromLua(value):getInternal()):toLocalChecked()():toLua()
+      return this:get():toLocalChecked()():toObject():set(Value:fromLua(key):getInternal(), Value:fromLua(value):getInternal()):toLocalChecked()():toLua()
     end)
   end,
   __len = function(self)
+    local this = rawget(self, "this")
     local ret = 0
-    if rawget(self, "this").baseType == "Array" then
+    if this.baseType == "Array" then
       ret = HandleScope()(function()
-        return rawget(self, "this"):get():toLocalChecked()():toArray():length()
+        return this:get():toLocalChecked()():toArray():length()
       end)
-    elseif rawget(self, "this").baseType == "Object" then
+    elseif this.baseType == "Object" then
       ret = HandleScope()(function()
-        return rawget(self, "this"):get():toLocalChecked()():toObject():getPropertyNames():toLocalChecked()():toArray():length()
+        return this:get():toLocalChecked()():toObject():getPropertyNames():toLocalChecked()():toArray():length()
       end)
     end
     return ret
   end,
   __pairs = function(self)
+    local this = rawget(self, "this")
     local ret
     ret = function()
       return nil
     end
-    if rawget(self, "this").baseType == "Object" then
+    if this.baseType == "Object" then
       HandleScope()(function()
-        local keys = Array(rawget(self, "this"):get():toLocalChecked()():toObject():getPropertyNames():toLocalChecked()())
+        local keys = Array(this:get():toLocalChecked()():toObject():getPropertyNames():toLocalChecked()())
         local current, size = 0, keys:length()
         ret = function()
           current = current + 1
@@ -299,13 +305,14 @@ PersistentProxy_mt = {
     return ret
   end,
   __ipairs = function(self)
+    local this = rawget(self, "this")
     local ret
     ret = function()
       return nil
     end
-    if rawget(self, "this").baseType == "Array" then
+    if this.baseType == "Array" then
       HandleScope()(function()
-        local current, size = 0, rawget(self, "this"):get():toLocalChecked()():toArray():length()
+        local current, size = 0, this:get():toLocalChecked()():toArray():length()
         ret = function()
           current = current + 1
           if current <= size then
@@ -317,14 +324,15 @@ PersistentProxy_mt = {
     return ret
   end,
   __call = function(self, ...)
+    local this = rawget(self, "this")
     local args = {
       ...
     }
-    if rawget(self, "this").baseType ~= "Function" then
-      safe_error("Attempted to call a non-function value: " .. rawget(self, "this").baseType)
+    if this.baseType ~= "Function" then
+      safe_error("Attempted to call a non-function value: " .. this.baseType)
     end
     return HandleScope()(function()
-      local rawReturn = rawget(self, "this"):get():toLocalChecked()():toFunction():setParent(rawget(self, "parent"))(unpack(args)):toLocalChecked()
+      local rawReturn = this:get():toLocalChecked()():toFunction():setParent(rawget(self, "parent"))(unpack(args)):toLocalChecked()
       if rawReturn == nil then
         return nil
       else
@@ -333,12 +341,14 @@ PersistentProxy_mt = {
     end)
   end,
   __tostring = function(self)
+    local this = rawget(self, "this")
     return HandleScope()(function()
-      return rawget(self, "this"):get():toLocalChecked()():stringValue()
+      return this:get():toLocalChecked()():stringValue()
     end)
   end,
   __gc = function(self)
-    return rawget(self, "this"):disposeGlobal()
+    local this = rawget(self, "this")
+    return this:disposeGlobal()
   end
 }
 do

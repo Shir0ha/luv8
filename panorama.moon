@@ -26,17 +26,20 @@ safe_error = (msg) ->
     for _,v in pairs(persistentTbl) do
         Persistent(v)\disposeGlobal!
     error(msg)
-rawget = (tbl, key) ->
+rawgetImpl = (tbl, key) ->
     mtb = getmetatable(tbl)
     setmetatable(tbl, nil)
     res = tbl[key]
     setmetatable(tbl, mtb)
     res
-rawset = (tbl, key, value) ->
+rawsetImpl = (tbl, key, value) ->
     mtb = getmetatable(tbl)
     setmetatable(tbl, nil)
     tbl[key] = value
     setmetatable(tbl, mtb)
+--should increase performance on primordial
+rawget = rawget == nil and rawgetImpl or rawget
+rawset = rawset == nil and rawsetImpl or rawset
 __thiscall = (func, this) -> (...) -> func(this, ...)
 table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->
@@ -138,24 +141,28 @@ class MaybeLocal
 
 PersistentProxy_mt = {
     __index: (key) =>
-        ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
+        this = rawget(@,"this")
+        ret = HandleScope!(() -> this\get!\toLocalChecked!!\toObject!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
         if type(ret) == "table" then
-            rawset(ret,"parent",rawget(@,"this"))
+            rawset(ret,"parent",this)
         ret
     __newindex: (key, value) =>
-        HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
+        this = rawget(@,"this")
+        HandleScope!(() -> this\get!\toLocalChecked!!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
     __len: =>
+        this = rawget(@,"this")
         ret = 0
-        if rawget(@,"this").baseType == "Array" then
-            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toArray!\length!)
-        elseif rawget(@,"this").baseType == "Object" then
-            ret = HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!\toArray!\length!)
+        if this.baseType == "Array" then
+            ret = HandleScope!(() -> this\get!\toLocalChecked!!\toArray!\length!)
+        elseif this.baseType == "Object" then
+            ret = HandleScope!(() -> this\get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!\toArray!\length!)
         ret
     __pairs: =>
+        this = rawget(@,"this")
         ret = () -> nil
-        if rawget(@,"this").baseType == "Object" then
+        if this.baseType == "Object" then
             HandleScope!(() ->
-                keys = Array(rawget(@,"this")\get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!)
+                keys = Array(this\get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!)
                 current, size = 0, keys\length!
                 ret = () ->
                     current = current+1
@@ -165,10 +172,11 @@ PersistentProxy_mt = {
             )
         ret
     __ipairs: =>
+        this = rawget(@,"this")
         ret = () -> nil
-        if rawget(@,"this").baseType == "Array" then
+        if this.baseType == "Array" then
             HandleScope!(() ->
-                current, size = 0, rawget(@,"this")\get!\toLocalChecked!!\toArray!\length!
+                current, size = 0, this\get!\toLocalChecked!!\toArray!\length!
                 ret = () ->
                     current = current+1
                     if current <= size then
@@ -176,19 +184,22 @@ PersistentProxy_mt = {
             )
         ret
     __call: (...) =>
+        this = rawget(@,"this")
         args = { ... }
-        if rawget(@,"this").baseType ~= "Function" then safe_error("Attempted to call a non-function value: " .. rawget(@,"this").baseType)
+        if this.baseType ~= "Function" then safe_error("Attempted to call a non-function value: " .. this.baseType)
         HandleScope!(() ->
-            rawReturn = rawget(@,"this")\get!\toLocalChecked!!\toFunction!\setParent(rawget(@,"parent"))(unpack(args))\toLocalChecked!
+            rawReturn = this\get!\toLocalChecked!!\toFunction!\setParent(rawget(@,"parent"))(unpack(args))\toLocalChecked!
             if rawReturn == nil then
                 nil
             else
                 rawReturn!\toLua!
         )
     __tostring: =>
-        HandleScope!(() -> rawget(@,"this")\get!\toLocalChecked!!\stringValue!)
+        this = rawget(@,"this")
+        HandleScope!(() -> this\get!\toLocalChecked!!\stringValue!)
     __gc: =>
-        rawget(@,"this")\disposeGlobal!
+        this = rawget(@,"this")
+        this\disposeGlobal!
 }
 
 class Persistent
