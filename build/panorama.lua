@@ -1,4 +1,4 @@
-local _INFO, cast, typeof, new, ev0lve, find_pattern, create_interface, safe_mode, _error, error, exception, rawgetImpl, rawsetImpl, rawget, rawset, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
+local _INFO, cast, typeof, new, find_pattern, create_interface, api, safe_mode, _error, error, exception, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
   _VERSION = 1.1
 }
@@ -10,14 +10,33 @@ setmetatable(_INFO, {
     return self._VERSION
   end
 })
+if _G and not ffi then
+  _G.ffi = require("ffi")
+end
 do
   local _obj_0 = ffi
   cast, typeof, new = _obj_0.cast, _obj_0.typeof, _obj_0.new
 end
-ev0lve = _G == nil
-find_pattern = ev0lve and utils.find_pattern or memory.find_pattern
-create_interface = ev0lve and utils.find_interface or memory.create_interface
+find_pattern = function()
+  return error("Unknown provider")
+end
+create_interface = function()
+  return error("Unknown provider")
+end
+api = (_G == nil) and "ev0lve" or (file == nil and "primordial" or "legendware")
+local _exp_0 = api
+if "ev0lve" == _exp_0 then
+  find_pattern = utils.find_pattern
+  create_interface = utils.find_interface
+elseif "primordial" == _exp_0 then
+  find_pattern = memory.find_pattern
+  create_interface = memory.create_interface
+elseif "legendware" == _exp_0 then
+  find_pattern = utils.find_signature
+  create_interface = utils.create_interface
+end
 safe_mode = xpcall and true or false
+print(("\nluv8 panorama library;\napi: %s; safe_mode: %s; rawops: %s;"):format(api, tostring(safe_mode), tostring(rawget ~= nil)))
 _error = error
 error = function(msg)
   for _, v in pairs(persistentTbl) do
@@ -41,11 +60,11 @@ rawsetImpl = function(tbl, key, value)
   tbl[key] = value
   return setmetatable(tbl, mtb)
 end
-if not (rawget) then
-  rawget = rawgetImpl
+if not rawget then
+  local rawget = rawgetImpl
 end
-if not (rawset) then
-  rawset = rawsetImpl
+if not rawset then
+  local rawset = rawsetImpl
 end
 __thiscall = function(func, this)
   return function(...)
@@ -74,18 +93,18 @@ vtable_thunk = function(i, ct)
   end
 end
 proc_bind = (function()
-  local fnGetProcAddress = cast("uint32_t(__stdcall*)(uint32_t, const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", " FF 15 ? ? ? ? A3 ? ? ? ? EB 05")) + 2)[0][0])
-  local fnGetModuleHandle = cast("uint32_t(__stdcall*)(const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", " FF 15 ? ? ? ? 85 C0 74 0B")) + 2)[0][0])
+  local fnGetProcAddress = cast("uint32_t(__stdcall*)(uint32_t, const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? A3 ? ? ? ? EB 05")) + 2)[0][0])
+  local fnGetModuleHandle = cast("uint32_t(__stdcall*)(const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? 85 C0 74 0B")) + 2)[0][0])
   return function(module_name, function_name, typedef)
     return cast(typeof(typedef), fnGetProcAddress(fnGetModuleHandle(module_name), function_name))
   end
 end)()
 follow_call = function(ptr)
   local insn = cast("uint8_t*", ptr)
-  local _exp_0 = insn[0]
-  if (0xE8 or 0xE9) == _exp_0 then
+  local _exp_1 = insn[0]
+  if (0xE8 or 0xE9) == _exp_1 then
     return cast("uint32_t", insn + cast("int32_t*", insn + 1)[0] + 5)
-  elseif 0xFF == _exp_0 then
+  elseif 0xFF == _exp_1 then
     if insn[1] == 0x15 then
       return cast("uint32_t**", cast("const char*", ptr) + 2)[0][0]
     end
@@ -179,7 +198,7 @@ UIEngine = vtable(vtable_bind("panorama.dll", "PanoramaUIEngine001", 11, "void*(
 nativeIsValidPanelPointer = UIEngine:get(36, "bool(__thiscall*)(void*,void const*)")
 nativeGetLastDispatchedEventTargetPanel = UIEngine:get(56, "void*(__thiscall*)(void*)")
 nativeCompileRunScript = UIEngine:get(113, "void****(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
-nativeRunScript = __thiscall(cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?"))), UIEngine:getInstance())
+nativeRunScript = __thiscall(cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(find_pattern("panorama.dll", api == "legendware" and "E8 ? ? ? ? 8B 4C 24 10 FF 15 ?" or "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?"))), UIEngine:getInstance())
 nativeGetV8GlobalContext = UIEngine:get(123, "void*(__thiscall*)(void*)")
 nativeGetIsolate = UIEngine:get(129, "void*(__thiscall*)(void*)")
 nativeGetParent = vtable_thunk(25, "void*(__thiscall*)(void*)")

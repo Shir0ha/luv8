@@ -14,13 +14,25 @@ setmetatable(_INFO,{
     __tostring: => self._VERSION
 })
 
+if _G and not ffi then _G.ffi = require("ffi") -- ev0lve api be like
 import cast, typeof, new from ffi
 
 --#pragma region compatibility_layer
-ev0lve = _G == nil -- ev0lve or fatality since they have the same api
-find_pattern = ev0lve and utils.find_pattern or memory.find_pattern
-create_interface = ev0lve and utils.find_interface or memory.create_interface
+find_pattern = () -> error("Unknown provider")
+create_interface = () -> error("Unknown provider")
+api = (_G == nil) and "ev0lve" or (file == nil and "primordial" or "legendware")
+switch api
+    when "ev0lve"
+        find_pattern = utils.find_pattern
+        create_interface = utils.find_interface
+    when "primordial"
+        find_pattern = memory.find_pattern
+        create_interface = memory.create_interface
+    when "legendware"
+        find_pattern = utils.find_signature
+        create_interface = utils.create_interface
 safe_mode = xpcall and true or false
+print(("\nluv8 panorama library;\napi: %s; safe_mode: %s; rawops: %s;")\format(api, tostring(safe_mode), tostring(rawget ~= nil)))
 --#pragma endregion compatibility_layer
 
 --#pragma region helper_functions
@@ -42,9 +54,8 @@ rawsetImpl = (tbl, key, value) ->
     setmetatable(tbl, nil)
     tbl[key] = value
     setmetatable(tbl, mtb)
---should increase performance on primordial
-rawget = rawgetImpl unless rawget
-rawset = rawsetImpl unless rawset
+if not rawget then rawget = rawgetImpl -- in case some cheat doesn't have rawset/rawget enabled (like old ev0lve)
+if not rawset then rawset = rawsetImpl
 __thiscall = (func, this) -> (...) -> func(this, ...)
 table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->
@@ -56,8 +67,8 @@ vtable_thunk = (i, ct) ->
     t = typeof(ct)
     (instance, ...) -> vtable_entry(instance, i, t)(instance, ...)
 proc_bind = (() ->
-    fnGetProcAddress = cast("uint32_t(__stdcall*)(uint32_t, const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", " FF 15 ? ? ? ? A3 ? ? ? ? EB 05")) + 2)[0][0])
-    fnGetModuleHandle = cast("uint32_t(__stdcall*)(const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", " FF 15 ? ? ? ? 85 C0 74 0B")) + 2)[0][0])
+    fnGetProcAddress = cast("uint32_t(__stdcall*)(uint32_t, const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? A3 ? ? ? ? EB 05")) + 2)[0][0])
+    fnGetModuleHandle = cast("uint32_t(__stdcall*)(const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? 85 C0 74 0B")) + 2)[0][0])
     (module_name, function_name, typedef) ->
         cast(typeof(typedef), fnGetProcAddress(fnGetModuleHandle(module_name), function_name))
     )!
@@ -109,7 +120,7 @@ UIEngine = vtable(vtable_bind("panorama.dll", "PanoramaUIEngine001", 11, "void*(
 nativeIsValidPanelPointer = UIEngine\get(36, "bool(__thiscall*)(void*,void const*)")
 nativeGetLastDispatchedEventTargetPanel = UIEngine\get(56, "void*(__thiscall*)(void*)")
 nativeCompileRunScript = UIEngine\get(113, "void****(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)")
-nativeRunScript = __thiscall(cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?"))), UIEngine\getInstance!)
+nativeRunScript = __thiscall(cast(typeof("void*(__thiscall*)(void*,void*,void*,void*,int,bool)"), follow_call(find_pattern("panorama.dll", api == "legendware" and "E8 ? ? ? ? 8B 4C 24 10 FF 15 ?" or "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?"))), UIEngine\getInstance!)
 nativeGetV8GlobalContext = UIEngine\get(123, "void*(__thiscall*)(void*)")
 nativeGetIsolate = UIEngine\get(129, "void*(__thiscall*)(void*)")
 nativeGetParent = vtable_thunk(25, "void*(__thiscall*)(void*)")
