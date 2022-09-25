@@ -23,7 +23,7 @@
 - congrats for being the first cheat that can't properly support panorama lib
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### other cheats  
-- luv8 currently only provides compatibility with ev0lve, primordial and fatality, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
+- luv8 currently only provides compatibility with ev0lve, primordial, legendware, memesense and fatality, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
 
 ## API
 ### `panorama.loadstring`  
