@@ -14,7 +14,7 @@ setmetatable(_INFO,{
     __tostring: => self._VERSION
 })
 
-if _G and not ffi then _G.ffi = require("ffi") -- ev0lve api be like
+if _G and not ffi then export ffi = require("ffi") -- ev0lve api be like
 import cast, typeof, new from ffi
 
 --#pragma region compatibility_layer
@@ -54,8 +54,8 @@ rawsetImpl = (tbl, key, value) ->
     setmetatable(tbl, nil)
     tbl[key] = value
     setmetatable(tbl, mtb)
-if not rawget then rawget = rawgetImpl -- in case some cheat doesn't have rawset/rawget enabled (like old ev0lve)
-if not rawset then rawset = rawsetImpl
+if not rawget then export rawget = rawgetImpl -- in case some cheat doesn't have rawset/rawget enabled (like old ev0lve)
+if not rawset then export rawset = rawsetImpl
 __thiscall = (func, this) -> (...) -> func(this, ...)
 table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->

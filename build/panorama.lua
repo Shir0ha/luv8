@@ -11,7 +11,7 @@ setmetatable(_INFO, {
   end
 })
 if _G and not ffi then
-  _G.ffi = require("ffi")
+  ffi = require("ffi")
 end
 do
   local _obj_0 = ffi
@@ -61,10 +61,10 @@ rawsetImpl = function(tbl, key, value)
   return setmetatable(tbl, mtb)
 end
 if not rawget then
-  local rawget = rawgetImpl
+  rawget = rawgetImpl
 end
 if not rawset then
-  local rawset = rawsetImpl
+  rawset = rawsetImpl
 end
 __thiscall = function(func, this)
   return function(...)
