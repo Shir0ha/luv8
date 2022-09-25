@@ -10,10 +10,14 @@
 - use the [workshop version](https://ev0lve.xyz/scripts/panorama-library.50/) on forum
 ### primordial  
 - use the [workshop version](https://primordial.dev/resources/panorama-library.248/) on forum
-- the workshop version may be outdated (due to [@Shir0ha](https://github.com/Shir0ha) being lazy af)
+- the workshop version may be outdated (due to [@Shir0ha](https://github.com/Shir0ha) being lazy af), please use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### fatality  
-- use the [stolen version](https://fatality.win/threads/panorama.11377/) on forum (jk, I gave [@panzerfaust](https://github.com/panzerfaust1) the source code)
+- use the [outdated version](https://fatality.win/threads/panorama.11377/) on forum (jk, I gave [@panzerfaust](https://github.com/panzerfaust1) the source code)
 - may be EXTREMELY outdated, please use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
+- new version is waiting for approval  
+### legendware  
+- use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
+- released on [forum](https://legendware.pw/threads/panorama-library.8821/)  
 ### other cheats  
 - luv8 currently only provides compatibility with ev0lve, primordial and fatality, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
 
