@@ -12,7 +12,7 @@
 - use the [workshop version](https://primordial.dev/resources/panorama-library.248/) on forum
 - the workshop version may be outdated (due to [@Shir0ha](https://github.com/Shir0ha) being lazy af), please use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### fatality  
-- use the [outdated version](https://fatality.win/threads/panorama.11377/) on forum (jk, I gave [@panzerfaust](https://github.com/panzerfaust1) the source code)
+- use the [outdated version](https://fatality.win/threads/panorama.11377/) on forum (jk, I gave [@panzerfaust](https://github.com/panzerfaust1) the source code before it was public)
 - may be EXTREMELY outdated, please use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 - new version is waiting for approval  
 ### legendware  
