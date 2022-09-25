@@ -1333,8 +1333,15 @@ panorama.open = function(panel)
   if panel == nil then
     panel = "CSGOJsRegistration"
   end
+  local fallback = "CSGOJsRegistration"
+  if panel == "CSGOMainMenu" then
+    fallback = "CSGOHub"
+  end
+  if panel == "CSGOHub" then
+    fallback = "CSGOMainMenu"
+  end
   return HandleScope()(function()
-    return Context(Isolate():getCurrentContext()):global():toLocalChecked()():toLua(), panorama.GetPanel(panel)
+    return Context(Isolate():getCurrentContext()):global():toLocalChecked()():toLua(), panorama.GetPanel(panel, fallback)
   end)
 end
 panorama.info = _INFO
