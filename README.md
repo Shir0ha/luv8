@@ -18,6 +18,12 @@
 ### legendware  
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 - released on [forum](https://legendware.pw/threads/panorama-library.8821/)  
+### memesense
+- tbh this cheat, especially the lua ffi api is the worst I've ever seen
+- a lot of things didn't work lmao and I had to implement some ghetto workarounds
+- crashes when return certain objects (for instance the function $.Msg) FOR NO REASON, like it's not even an issue with my code, I just called UIEngine[113] (RunScript) **AND AFTER 1 SECOND (YES IT'S NOT INSTANT CRASH) THE CHEAT WILL FUCK ITSELF UP**
+- congrats for being the first cheat that can't properly support panorama lib
+- use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### other cheats  
 - luv8 currently only provides compatibility with ev0lve, primordial and fatality, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
 

@@ -23,7 +23,7 @@ end
 create_interface = function()
   return error("Unknown provider")
 end
-api = (_G == nil) and "ev0lve" or (file == nil and "primordial" or "legendware")
+api = (_G == nil) and "ev0lve" or (file == nil and (GameEventManager == nil and "primordial" or "memesense") or "legendware")
 local _exp_0 = api
 if "ev0lve" == _exp_0 then
   find_pattern = utils.find_pattern
@@ -31,12 +31,15 @@ if "ev0lve" == _exp_0 then
 elseif "primordial" == _exp_0 then
   find_pattern = memory.find_pattern
   create_interface = memory.create_interface
+elseif "memesense" == _exp_0 then
+  find_pattern = Utils.PatternScan
+  create_interface = Utils.CreateInterface
 elseif "legendware" == _exp_0 then
   find_pattern = utils.find_signature
   create_interface = utils.create_interface
 end
 safe_mode = xpcall and true or false
-print(("\nluv8 panorama library;\napi: %s; safe_mode: %s; rawops: %s;"):format(api, tostring(safe_mode), tostring(rawget ~= nil)))
+print(("\nluv8 panorama library;\napi: %s;\nenabled features: safe_mode: %s; rawops: %s; ffi.C: %s"):format(api, tostring(safe_mode), tostring(rawget ~= nil), tostring(ffi.C ~= nil)))
 _error = error
 if 1 + 2 == 3 then
   error = function(msg)
@@ -95,8 +98,24 @@ vtable_thunk = function(i, ct)
   end
 end
 proc_bind = (function()
-  local fnGetProcAddress = cast("uint32_t(__stdcall*)(uint32_t, const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? A3 ? ? ? ? EB 05")) + 2)[0][0])
-  local fnGetModuleHandle = cast("uint32_t(__stdcall*)(const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? 85 C0 74 0B")) + 2)[0][0])
+  local fnGetProcAddress
+  fnGetProcAddress = function()
+    return error("Failed to load GetProcAddress")
+  end
+  local fnGetModuleHandle
+  fnGetModuleHandle = function()
+    return error("Failed to load GetModuleHandleA")
+  end
+  if ffi.C then
+    ffi.cdef([[            uint32_t GetProcAddress(uint32_t, const char*);
+            uint32_t GetModuleHandleA(const char*);
+        ]])
+    fnGetProcAddress = ffi.C.GetProcAddress
+    fnGetModuleHandle = ffi.C.GetModuleHandleA
+  else
+    fnGetProcAddress = cast("uint32_t(__stdcall*)(uint32_t, const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? A3 ? ? ? ? EB 05")) + 2)[0][0])
+    fnGetModuleHandle = cast("uint32_t(__stdcall*)(const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? 85 C0 74 0B")) + 2)[0][0])
+  end
   return function(module_name, function_name, typedef)
     return cast(typeof(typedef), fnGetProcAddress(fnGetModuleHandle(module_name), function_name))
   end
@@ -110,6 +129,8 @@ follow_call = function(ptr)
     if insn[1] == 0x15 then
       return cast("uint32_t**", cast("const char*", ptr) + 2)[0][0]
     end
+  else
+    return ptr
   end
 end
 v8js_args = function(...)
@@ -1199,7 +1220,7 @@ do
       if layout == nil then
         layout = ""
       end
-      return __thiscall(cast("void**(__thiscall*)(void*,void*,const char*,const char*)", find_pattern("panorama.dll", "55 8B EC 83 E4 F8 83 EC 64 53 8B D9")), UIEngine:getInstance())(panel, source, layout)
+      return __thiscall(cast("void**(__thiscall*)(void*,void*,const char*,const char*)", api == "memesense" and find_pattern("panorama.dll", "E8 ? ? ? ? 8B 4C 24 10 FF 15 ? ? ? ?") - 2816 or find_pattern("panorama.dll", "55 8B EC 83 E4 F8 83 EC 64 53 8B D9")), UIEngine:getInstance())(panel, source, layout)
     end,
     loadstring = function(self, str, panel)
       local isolate = Isolate(nativeGetIsolate())
