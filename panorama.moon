@@ -37,10 +37,11 @@ print(("\nluv8 panorama library;\napi: %s; safe_mode: %s; rawops: %s;")\format(a
 
 --#pragma region helper_functions
 _error = error
-error = (msg) ->
-    for _,v in pairs(persistentTbl) do
-        Persistent(v)\disposeGlobal!
-    _error(msg)
+if 1+2==3 then
+    export error = (msg) ->
+        for _,v in pairs(persistentTbl) do
+            Persistent(v)\disposeGlobal!
+        _error(msg)
 exception = (msg) ->
     print("Caught exception in HandleScope: ", tostring(msg))
 rawgetImpl = (tbl, key) ->

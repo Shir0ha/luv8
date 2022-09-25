@@ -1,4 +1,4 @@
-local _INFO, cast, typeof, new, find_pattern, create_interface, api, safe_mode, _error, error, exception, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
+local _INFO, cast, typeof, new, find_pattern, create_interface, api, safe_mode, _error, exception, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
   _VERSION = 1.1
 }
@@ -38,11 +38,13 @@ end
 safe_mode = xpcall and true or false
 print(("\nluv8 panorama library;\napi: %s; safe_mode: %s; rawops: %s;"):format(api, tostring(safe_mode), tostring(rawget ~= nil)))
 _error = error
-error = function(msg)
-  for _, v in pairs(persistentTbl) do
-    Persistent(v):disposeGlobal()
+if 1 + 2 == 3 then
+  error = function(msg)
+    for _, v in pairs(persistentTbl) do
+      Persistent(v):disposeGlobal()
+    end
+    return _error(msg)
   end
-  return _error(msg)
 end
 exception = function(msg)
   return print("Caught exception in HandleScope: ", tostring(msg))
