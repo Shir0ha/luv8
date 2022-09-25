@@ -78,3 +78,9 @@ panorama.GetPanel(panel: string[, fallback: string]): ffi::void* (UIPanel)
   - the development of this library was 99% done on [ev0lve.xyz](https://ev0lve.xyz/)
 - primordial
   - public testing of this library happened on [primordial.dev](https://primordial.dev/)
+
+## some other stuff
+- [old footage of the panorama lib before it was rewritten in moonscript](https://www.youtube.com/watch?v=2i9itIjnDlo)  
+- [confusing stuff when we were trying to figure out globalizeReference](https://i.imgur.com/cX9hedq.png)
+- [table overflow error due to our previously retarded vtable_thunk implementation](https://i.imgur.com/cX9hedq.png)
+- [??????????](https://i.imgur.com/hJpVJtt.png)
