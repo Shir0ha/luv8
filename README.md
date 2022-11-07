@@ -15,7 +15,10 @@
 - use the [official version](https://fatality.win/threads/panorama-library.11951/) on forum
 ### legendware  
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
-- released on [forum](https://legendware.pw/threads/panorama-library.8821/)  
+- released on [forum](https://legendware.pw/threads/panorama-library.8821/)
+### pandora
+- use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
+- released on [forum](https://pandora.gg/threads/panorama-library.651/)
 ### memesense
 - tbh this cheat, especially the lua ffi api is the worst I've ever seen
 - a lot of things didn't work lmao and I had to implement some ghetto workarounds
