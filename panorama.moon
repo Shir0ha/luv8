@@ -18,11 +18,14 @@ if _G and not ffi then export ffi = require("ffi") -- ev0lve api be like
 import cast, typeof, new from ffi
 
 --#pragma region compatibility_layer
-find_pattern = () -> error("Unknown provider")
-create_interface = () -> error("Unknown provider")
-api = (_G == nil) and "ev0lve" or (file == nil and (GameEventManager == nil and "primordial" or "memesense") or "legendware")
+find_pattern = () -> error("Unsupported provider (e.g. gamesense, neverlose)")
+create_interface = () -> error("Unsupported provider (e.g. gamesense, neverlose)")
+api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and "primordial" or "pandora") or "memesense") or "legendware")
 switch api
     when "ev0lve"
+        find_pattern = utils.find_pattern
+        create_interface = utils.find_interface
+    when "fa7ality"
         find_pattern = utils.find_pattern
         create_interface = utils.find_interface
     when "primordial"
@@ -34,6 +37,9 @@ switch api
     when "legendware"
         find_pattern = utils.find_signature
         create_interface = utils.create_interface
+    when "pandora"
+        find_pattern = client.find_sig
+        create_interface = client.create_interface
 safe_mode = xpcall and true or false
 print(("\nluv8 panorama library;\napi: %s;\nenabled features: safe_mode: %s; rawops: %s; ffi.C: %s")\format(api, tostring(safe_mode), tostring(rawget ~= nil), tostring(ffi.C ~= nil)))
 --#pragma endregion compatibility_layer
