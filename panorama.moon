@@ -177,31 +177,32 @@ class MaybeLocal
     new: (val) => @this = cast("void**", val)
     getInternal: => @this
     toLocalChecked: => Local(@this) unless @this[0] == nullptr
+    toValueChecked: => Value(@this[0]) unless @this[0] == nullptr
 
 PersistentProxy_mt = {
     __index: (key) =>
         this = rawget(@,"this")
-        ret = HandleScope!(() -> this\get!\toLocalChecked!!\toObject!\get(Value\fromLua(key)\getInternal!)\toLocalChecked!!\toLua!)
+        ret = HandleScope!(() -> this\getAsValue!\toObject!\get(Value\fromLua(key)\getInternal!)\toValueChecked!\toLua!)
         if type(ret) == "table" then
             rawset(ret,"parent",this)
         ret
     __newindex: (key, value) =>
         this = rawget(@,"this")
-        HandleScope!(() -> this\get!\toLocalChecked!!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toLocalChecked!!\toLua!)
+        HandleScope!(() -> this\getAsValue!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toValueChecked!\toLua!)
     __len: =>
         this = rawget(@,"this")
         ret = 0
         if this.baseType == "Array" then
-            ret = HandleScope!(() -> this\get!\toLocalChecked!!\toArray!\length!)
+            ret = HandleScope!(() -> this\getAsValue!\toArray!\length!)
         elseif this.baseType == "Object" then
-            ret = HandleScope!(() -> this\get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!\toArray!\length!)
+            ret = HandleScope!(() -> this\getAsValue!\toObject!\getPropertyNames!\toValueChecked!\toArray!\length!)
         ret
     __pairs: =>
         this = rawget(@,"this")
         ret = () -> nil
         if this.baseType == "Object" then
             HandleScope!(() ->
-                keys = Array(this\get!\toLocalChecked!!\toObject!\getPropertyNames!\toLocalChecked!!)
+                keys = Array(this\getAsValue!\toObject!\getPropertyNames!\toValueChecked!)
                 current, size = 0, keys\length!
                 ret = () ->
                     current = current+1
@@ -215,7 +216,7 @@ PersistentProxy_mt = {
         ret = () -> nil
         if this.baseType == "Array" then
             HandleScope!(() ->
-                current, size = 0, this\get!\toLocalChecked!!\toArray!\length!
+                current, size = 0, this\getAsValue!\toArray!\length!
                 ret = () ->
                     current = current+1
                     if current <= size then
@@ -227,7 +228,7 @@ PersistentProxy_mt = {
         args = { ... }
         if this.baseType ~= "Function" then error("Attempted to call a non-function value: " .. this.baseType)
         HandleScope!(() ->
-            rawReturn = this\get!\toLocalChecked!!\toFunction!\setParent(rawget(@,"parent"))(unpack(args))\toLocalChecked!
+            rawReturn = this\getAsValue!\toFunction!\setParent(rawget(@,"parent"))(unpack(args))\toLocalChecked!
             if rawReturn == nil then
                 nil
             else
@@ -235,7 +236,7 @@ PersistentProxy_mt = {
         )
     __tostring: =>
         this = rawget(@,"this")
-        HandleScope!(() -> this\get!\toLocalChecked!!\stringValue!)
+        HandleScope!(() -> this\getAsValue!\stringValue!)
     __gc: =>
         this = rawget(@,"this")
         this\disposeGlobal!
@@ -252,8 +253,9 @@ class Persistent
     disposeGlobal: =>
         v8_dll\get("?DisposeGlobal@V8@v8@@CAXPAPAVObject@internal@2@@Z","void(__cdecl*)(void*)")(@this)
     get: => MaybeLocal(HandleScope\createHandle(@this))
+    getAsValue: => Value(HandleScope\createHandle(@this)[0]) -- unsafe but efficient, we're assuming that every maybelocal is a local
     toLua: => -- should NOT be used if the persistent is an object!!!! cuz it will just return the same thing again
-        @get!\toLocalChecked!!\toLua!
+        @get!\toValueChecked!\toLua!
     getIdentityHash: => v8_dll\get("?GetIdentityHash@Object@v8@@QAEHXZ", "int(__thiscall*)(void*)")(@this)
     __call: =>
         setmetatable({this: self, parent: nil}, PersistentProxy_mt)
@@ -288,11 +290,11 @@ class Value
         v8_dll\get("??1Utf8Value@String@v8@@QAE@XZ", "void(__thiscall*)(void*)")(strBuf)
         s
     toObject: =>
-        Object(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, intbuf))\toLocalChecked!!\getInternal!)
+        Object(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, intbuf))\toValueChecked!\getInternal!)
     toArray: =>
-        Array(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, intbuf))\toLocalChecked!!\getInternal!)
+        Array(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, intbuf))\toValueChecked!\getInternal!)
     toFunction: =>
-        Function(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, intbuf))\toLocalChecked!!\getInternal!)
+        Function(MaybeLocal(v8_dll\get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(@this, intbuf))\toValueChecked!\getInternal!)
     toLocal: =>
         Local(new("void*[1]",@this))
     toLua: =>
@@ -310,7 +312,7 @@ class Value
 class Object extends Value
     new: (val) => @this = val
     fromLua: (isolate, val) =>
-        obj = Object(MaybeLocal(v8_dll\get("?New@Object@v8@@SA?AV?$Local@VObject@v8@@@2@PAVIsolate@2@@Z","void*(__cdecl*)(void*,void*)")(intbuf, isolate))\toLocalChecked!!\getInternal!)
+        obj = Object(MaybeLocal(v8_dll\get("?New@Object@v8@@SA?AV?$Local@VObject@v8@@@2@PAVIsolate@2@@Z","void*(__cdecl*)(void*,void*)")(intbuf, isolate))\toValueChecked!\getInternal!)
         for i,v in pairs(val) do
             obj\set(Value\fromLua(i)\getInternal!,Value\fromLua(v)\getInternal!)
         obj
@@ -326,7 +328,7 @@ class Object extends Value
 class Array extends Object
     new: (val) => @this = val
     fromLua: (isolate, val) =>
-        arr = Array(MaybeLocal(v8_dll\get("?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PAVIsolate@2@H@Z","void*(__cdecl*)(void*,void*,int)")(intbuf, isolate, #val))\toLocalChecked!!\getInternal!)
+        arr = Array(MaybeLocal(v8_dll\get("?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PAVIsolate@2@H@Z","void*(__cdecl*)(void*,void*,int)")(intbuf, isolate, #val))\toValueChecked!\getInternal!)
         for i=1, #val do
             arr\set(i-1,Value\fromLua(val[i])\getInternal!)
         arr
@@ -345,9 +347,9 @@ class Function extends Object
         @
     __call: (...) =>
         if @parent==nil then
-            @callAsFunction(Context(Isolate(nativeGetIsolate!)\getCurrentContext!)\global!\toLocalChecked!!\getInternal!, v8js_args(...))
+            @callAsFunction(Context(Isolate(nativeGetIsolate!)\getCurrentContext!)\global!\toValueChecked!\getInternal!, v8js_args(...))
         else
-            @callAsFunction(@parent\get!\toLocalChecked!!\getInternal!, v8js_args(...))
+            @callAsFunction(@parent\getAsValue!\getInternal!, v8js_args(...))
 
 class ObjectTemplate
     new: =>
@@ -391,7 +393,7 @@ class Isolate
     new: (val = nativeGetIsolate!) => @this = val
     enter: => v8_dll\get("?Enter@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
     exit: => v8_dll\get("?Exit@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(@this)
-    getCurrentContext: => MaybeLocal(v8_dll\get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(@this, intbuf))\toLocalChecked!!\getInternal!
+    getCurrentContext: => MaybeLocal(v8_dll\get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(@this, intbuf))\toValueChecked!\getInternal!
     getInternal: => @this
 
 class Context
@@ -447,7 +449,7 @@ class Script
         tryCatch\enter!
         compiled = MaybeLocal(@compile(panel, str))\toLocalChecked!
         tryCatch\exit!
-        ret = MaybeLocal(nativeRunScript(intbuf, panel, compiled!\getInternal!, 0, false))\toLocalChecked!!\toLua! unless compiled==nil -- we do not have to trycatch this one because it already does it itself!
+        ret = MaybeLocal(nativeRunScript(intbuf, panel, compiled!\getInternal!, 0, false))\toValueChecked!\toLua! unless compiled==nil -- we do not have to trycatch this one because it already does it itself!
         ret = (() -> print("WARNING: Attempted to call nullptr")) unless ((not safe_mode) or ret) -- lol preventing error, this way we can exit handlescope peacefully
         ctx\exit!
         handleScope\exit!
@@ -532,7 +534,7 @@ panorama.open = (panel = "CSGOJsRegistration") ->
     fallback = "CSGOJsRegistration"
     if panel == "CSGOMainMenu" then fallback = "CSGOHub"
     if panel == "CSGOHub" then fallback = "CSGOMainMenu"
-    HandleScope!(() -> Context(Isolate()\getCurrentContext!)\global!\toLocalChecked!!\toLua!, panorama.GetPanel(panel, fallback))
+    HandleScope!(() -> Context(Isolate()\getCurrentContext!)\global!\toValueChecked!\toLua!, panorama.GetPanel(panel, fallback))
 
 panorama.info = _INFO
 

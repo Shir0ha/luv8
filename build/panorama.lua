@@ -289,6 +289,11 @@ do
       if not (self.this[0] == nullptr) then
         return Local(self.this)
       end
+    end,
+    toValueChecked = function(self)
+      if not (self.this[0] == nullptr) then
+        return Value(self.this[0])
+      end
     end
   }
   _base_0.__index = _base_0
@@ -313,7 +318,7 @@ PersistentProxy_mt = {
   __index = function(self, key)
     local this = rawget(self, "this")
     local ret = HandleScope()(function()
-      return this:get():toLocalChecked()():toObject():get(Value:fromLua(key):getInternal()):toLocalChecked()():toLua()
+      return this:getAsValue():toObject():get(Value:fromLua(key):getInternal()):toValueChecked():toLua()
     end)
     if type(ret) == "table" then
       rawset(ret, "parent", this)
@@ -323,7 +328,7 @@ PersistentProxy_mt = {
   __newindex = function(self, key, value)
     local this = rawget(self, "this")
     return HandleScope()(function()
-      return this:get():toLocalChecked()():toObject():set(Value:fromLua(key):getInternal(), Value:fromLua(value):getInternal()):toLocalChecked()():toLua()
+      return this:getAsValue():toObject():set(Value:fromLua(key):getInternal(), Value:fromLua(value):getInternal()):toValueChecked():toLua()
     end)
   end,
   __len = function(self)
@@ -331,11 +336,11 @@ PersistentProxy_mt = {
     local ret = 0
     if this.baseType == "Array" then
       ret = HandleScope()(function()
-        return this:get():toLocalChecked()():toArray():length()
+        return this:getAsValue():toArray():length()
       end)
     elseif this.baseType == "Object" then
       ret = HandleScope()(function()
-        return this:get():toLocalChecked()():toObject():getPropertyNames():toLocalChecked()():toArray():length()
+        return this:getAsValue():toObject():getPropertyNames():toValueChecked():toArray():length()
       end)
     end
     return ret
@@ -348,7 +353,7 @@ PersistentProxy_mt = {
     end
     if this.baseType == "Object" then
       HandleScope()(function()
-        local keys = Array(this:get():toLocalChecked()():toObject():getPropertyNames():toLocalChecked()())
+        local keys = Array(this:getAsValue():toObject():getPropertyNames():toValueChecked())
         local current, size = 0, keys:length()
         ret = function()
           current = current + 1
@@ -369,7 +374,7 @@ PersistentProxy_mt = {
     end
     if this.baseType == "Array" then
       HandleScope()(function()
-        local current, size = 0, this:get():toLocalChecked()():toArray():length()
+        local current, size = 0, this:getAsValue():toArray():length()
         ret = function()
           current = current + 1
           if current <= size then
@@ -389,7 +394,7 @@ PersistentProxy_mt = {
       error("Attempted to call a non-function value: " .. this.baseType)
     end
     return HandleScope()(function()
-      local rawReturn = this:get():toLocalChecked()():toFunction():setParent(rawget(self, "parent"))(unpack(args)):toLocalChecked()
+      local rawReturn = this:getAsValue():toFunction():setParent(rawget(self, "parent"))(unpack(args)):toLocalChecked()
       if rawReturn == nil then
         return nil
       else
@@ -400,7 +405,7 @@ PersistentProxy_mt = {
   __tostring = function(self)
     local this = rawget(self, "this")
     return HandleScope()(function()
-      return this:get():toLocalChecked()():stringValue()
+      return this:getAsValue():stringValue()
     end)
   end,
   __gc = function(self)
@@ -424,8 +429,11 @@ do
     get = function(self)
       return MaybeLocal(HandleScope:createHandle(self.this))
     end,
+    getAsValue = function(self)
+      return Value(HandleScope:createHandle(self.this)[0])
+    end,
     toLua = function(self)
-      return self:get():toLocalChecked()():toLua()
+      return self:get():toValueChecked():toLua()
     end,
     getIdentityHash = function(self)
       return v8_dll:get("?GetIdentityHash@Object@v8@@QAEHXZ", "int(__thiscall*)(void*)")(self.this)
@@ -530,13 +538,13 @@ do
       return s
     end,
     toObject = function(self)
-      return Object(MaybeLocal(v8_dll:get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(self.this, intbuf)):toLocalChecked()():getInternal())
+      return Object(MaybeLocal(v8_dll:get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(self.this, intbuf)):toValueChecked():getInternal())
     end,
     toArray = function(self)
-      return Array(MaybeLocal(v8_dll:get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(self.this, intbuf)):toLocalChecked()():getInternal())
+      return Array(MaybeLocal(v8_dll:get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(self.this, intbuf)):toValueChecked():getInternal())
     end,
     toFunction = function(self)
-      return Function(MaybeLocal(v8_dll:get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(self.this, intbuf)):toLocalChecked()():getInternal())
+      return Function(MaybeLocal(v8_dll:get("?ToObject@Value@v8@@QBE?AV?$Local@VObject@v8@@@2@XZ", "void*(__thiscall*)(void*,void*)")(self.this, intbuf)):toValueChecked():getInternal())
     end,
     toLocal = function(self)
       return Local(new("void*[1]", self.this))
@@ -592,7 +600,7 @@ do
   local _parent_0 = Value
   local _base_0 = {
     fromLua = function(self, isolate, val)
-      local obj = Object(MaybeLocal(v8_dll:get("?New@Object@v8@@SA?AV?$Local@VObject@v8@@@2@PAVIsolate@2@@Z", "void*(__cdecl*)(void*,void*)")(intbuf, isolate)):toLocalChecked()():getInternal())
+      local obj = Object(MaybeLocal(v8_dll:get("?New@Object@v8@@SA?AV?$Local@VObject@v8@@@2@PAVIsolate@2@@Z", "void*(__cdecl*)(void*,void*)")(intbuf, isolate)):toValueChecked():getInternal())
       for i, v in pairs(val) do
         obj:set(Value:fromLua(i):getInternal(), Value:fromLua(v):getInternal())
       end
@@ -652,7 +660,7 @@ do
   local _parent_0 = Object
   local _base_0 = {
     fromLua = function(self, isolate, val)
-      local arr = Array(MaybeLocal(v8_dll:get("?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PAVIsolate@2@H@Z", "void*(__cdecl*)(void*,void*,int)")(intbuf, isolate, #val)):toLocalChecked()():getInternal())
+      local arr = Array(MaybeLocal(v8_dll:get("?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PAVIsolate@2@H@Z", "void*(__cdecl*)(void*,void*,int)")(intbuf, isolate, #val)):toValueChecked():getInternal())
       for i = 1, #val do
         arr:set(i - 1, Value:fromLua(val[i]):getInternal())
       end
@@ -711,9 +719,9 @@ do
     end,
     __call = function(self, ...)
       if self.parent == nil then
-        return self:callAsFunction(Context(Isolate(nativeGetIsolate()):getCurrentContext()):global():toLocalChecked()():getInternal(), v8js_args(...))
+        return self:callAsFunction(Context(Isolate(nativeGetIsolate()):getCurrentContext()):global():toValueChecked():getInternal(), v8js_args(...))
       else
-        return self:callAsFunction(self.parent:get():toLocalChecked()():getInternal(), v8js_args(...))
+        return self:callAsFunction(self.parent:getAsValue():getInternal(), v8js_args(...))
       end
     end
   }
@@ -1058,7 +1066,7 @@ do
       return v8_dll:get("?Exit@Isolate@v8@@QAEXXZ", "void(__thiscall*)(void*)")(self.this)
     end,
     getCurrentContext = function(self)
-      return MaybeLocal(v8_dll:get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(self.this, intbuf)):toLocalChecked()():getInternal()
+      return MaybeLocal(v8_dll:get("?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ", "void**(__thiscall*)(void*,void*)")(self.this, intbuf)):toValueChecked():getInternal()
     end,
     getInternal = function(self)
       return self.this
@@ -1253,7 +1261,7 @@ do
       tryCatch:exit()
       local ret
       if not (compiled == nil) then
-        ret = MaybeLocal(nativeRunScript(intbuf, panel, compiled():getInternal(), 0, false)):toLocalChecked()():toLua()
+        ret = MaybeLocal(nativeRunScript(intbuf, panel, compiled():getInternal(), 0, false)):toValueChecked():toLua()
       end
       if not (((not safe_mode) or ret)) then
         ret = (function()
@@ -1389,7 +1397,7 @@ panorama.open = function(panel)
     fallback = "CSGOMainMenu"
   end
   return HandleScope()(function()
-    return Context(Isolate():getCurrentContext()):global():toLocalChecked()():toLua(), panorama.GetPanel(panel, fallback)
+    return Context(Isolate():getCurrentContext()):global():toValueChecked():toLua(), panorama.GetPanel(panel, fallback)
   end)
 end
 panorama.info = _INFO
