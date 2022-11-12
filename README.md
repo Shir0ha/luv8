@@ -12,7 +12,7 @@
 - use the [workshop version](https://primordial.dev/resources/panorama-library.248/) on forum
 - the workshop version may be outdated (due to [@Shir0ha](https://github.com/Shir0ha) being ~~lazy af~~ **DEAD**), please use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### fatality  
-- use the [official version](https://fatality.win/threads/panorama-library.11951/) on forum
+- use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### legendware  
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 - released on [forum](https://legendware.pw/threads/panorama-library.8821/)
@@ -26,7 +26,7 @@
 - congrats for being the first cheat that can't properly support panorama lib
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### other cheats  
-- luv8 currently only provides compatibility with ev0lve, primordial, legendware, memesense and fatality, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
+- luv8 currently only provides compatibility with ev0lve, primordial, pandora, legendware, memesense and fatality, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
 
 ## API
 ### `panorama.loadstring`  
