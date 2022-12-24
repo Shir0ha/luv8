@@ -7,7 +7,7 @@
 -------------------------------------------------------
 local *
 
-_INFO = {_VERSION: 1.1}
+_INFO = {_VERSION: 1.2}
 
 setmetatable(_INFO,{
     __call: => self._VERSION,
@@ -499,7 +499,14 @@ panelList = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
 panelArrayOffset = cast("unsigned int*", cast("uintptr_t**", UIEngine\getInstance!)[0][36] + 21)[0]
 panelArray = cast(panelList, cast("uintptr_t", UIEngine\getInstance!) + panelArrayOffset)
 
-panorama.GetPanel = (panelName, fallback) ->
+panorama.hasPanel = (panelName) ->
+    for i, v in ipairs(panelArray) do
+        curPanelName = ffi.string(nativeGetID(v))
+        if curPanelName == panelName then
+            return true
+    false
+
+panorama.getPanel = (panelName, fallback) ->
     cachedPanel = panorama.panelIDs[panelName]
     if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and ffi.string(nativeGetID(cachedPanel))==panelName then
         return cachedPanel
@@ -515,12 +522,12 @@ panorama.GetPanel = (panelName, fallback) ->
                 break
     if pPanel == nullptr then
         if fallback ~= nil then
-            pPanel = panorama.GetPanel(fallback)
+            pPanel = panorama.getPanel(fallback)
         else
             error("Failed to get target panel %s (EAX == 0)"\format(tostring(panelName)))
     pPanel
 
-panorama.RunScript = (jsCode, panel = panorama.GetPanel("CSGOJsRegistration"), pathToXMLContext = "panorama/layout/base.xml") ->
+panorama.runScript = (jsCode, panel = panorama.getPanel("CSGOJsRegistration"), pathToXMLContext = "panorama/layout/base.xml") ->
     if not nativeIsValidPanelPointer(panel) then error("Invalid panel pointer (EAX == 0)")
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
@@ -528,7 +535,7 @@ panorama.loadstring = (jsCode, panel = "CSGOJsRegistration") ->
     fallback = "CSGOJsRegistration"
     if panel == "CSGOMainMenu" then fallback = "CSGOHub"
     if panel == "CSGOHub" then fallback = "CSGOMainMenu"
-    Script\loadstring("(()=>{%s})"\format(jsCode), panorama.GetPanel(panel, fallback))
+    Script\loadstring("(()=>{%s})"\format(jsCode), panorama.getPanel(panel, fallback))
 
 panorama.open = (panel = "CSGOJsRegistration") ->
     fallback = "CSGOJsRegistration"
@@ -536,8 +543,18 @@ panorama.open = (panel = "CSGOJsRegistration") ->
     if panel == "CSGOHub" then fallback = "CSGOMainMenu"
     HandleScope!(() -> Context(Isolate()\getCurrentContext!)\global!\toValueChecked!\toLua!, panorama.GetPanel(panel, fallback))
 
+panorama.GetPanel = panorama.getPanel -- backwards compatibility
+panorama.RunScript = panorama.runScript -- backwards compatibility
+panorama.panelArray = panelArray
+
 panorama.info = _INFO
 
-setmetatable(panorama, {__tostring: => "luv8 panorama library v%.1f"\format(_INFO._VERSION)})
+setmetatable(panorama, {
+    __tostring: => "luv8 panorama library v%.1f"\format(_INFO._VERSION)
+    __index: (key) =>
+        if panorama.hasPanel(key) then
+            return panorama.open(key)
+        panorama.open()[key]
+})
 
 panorama

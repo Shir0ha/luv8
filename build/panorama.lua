@@ -1,6 +1,6 @@
 local _INFO, cast, typeof, new, find_pattern, create_interface, api, safe_mode, _error, exception, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
-  _VERSION = 1.1
+  _VERSION = 1.2
 }
 setmetatable(_INFO, {
   __call = function(self)
@@ -1334,7 +1334,16 @@ ffi.metatype(CUtlVector_Constructor_t, {
 panelList = typeof("$[?]", CUtlVector_Constructor_t)(1)[0]
 panelArrayOffset = cast("unsigned int*", cast("uintptr_t**", UIEngine:getInstance())[0][36] + 21)[0]
 panelArray = cast(panelList, cast("uintptr_t", UIEngine:getInstance()) + panelArrayOffset)
-panorama.GetPanel = function(panelName, fallback)
+panorama.hasPanel = function(panelName)
+  for i, v in ipairs(panelArray) do
+    local curPanelName = ffi.string(nativeGetID(v))
+    if curPanelName == panelName then
+      return true
+    end
+  end
+  return false
+end
+panorama.getPanel = function(panelName, fallback)
   local cachedPanel = panorama.panelIDs[panelName]
   if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and ffi.string(nativeGetID(cachedPanel)) == panelName then
     return cachedPanel
@@ -1353,16 +1362,16 @@ panorama.GetPanel = function(panelName, fallback)
   end
   if pPanel == nullptr then
     if fallback ~= nil then
-      pPanel = panorama.GetPanel(fallback)
+      pPanel = panorama.getPanel(fallback)
     else
       error(("Failed to get target panel %s (EAX == 0)"):format(tostring(panelName)))
     end
   end
   return pPanel
 end
-panorama.RunScript = function(jsCode, panel, pathToXMLContext)
+panorama.runScript = function(jsCode, panel, pathToXMLContext)
   if panel == nil then
-    panel = panorama.GetPanel("CSGOJsRegistration")
+    panel = panorama.getPanel("CSGOJsRegistration")
   end
   if pathToXMLContext == nil then
     pathToXMLContext = "panorama/layout/base.xml"
@@ -1383,7 +1392,7 @@ panorama.loadstring = function(jsCode, panel)
   if panel == "CSGOHub" then
     fallback = "CSGOMainMenu"
   end
-  return Script:loadstring(("(()=>{%s})"):format(jsCode), panorama.GetPanel(panel, fallback))
+  return Script:loadstring(("(()=>{%s})"):format(jsCode), panorama.getPanel(panel, fallback))
 end
 panorama.open = function(panel)
   if panel == nil then
@@ -1400,10 +1409,19 @@ panorama.open = function(panel)
     return Context(Isolate():getCurrentContext()):global():toValueChecked():toLua(), panorama.GetPanel(panel, fallback)
   end)
 end
+panorama.GetPanel = panorama.getPanel
+panorama.RunScript = panorama.runScript
+panorama.panelArray = panelArray
 panorama.info = _INFO
 setmetatable(panorama, {
   __tostring = function(self)
     return ("luv8 panorama library v%.1f"):format(_INFO._VERSION)
+  end,
+  __index = function(self, key)
+    if panorama.hasPanel(key) then
+      return panorama.open(key)
+    end
+    return panorama.open()[key]
   end
 })
 return panorama
