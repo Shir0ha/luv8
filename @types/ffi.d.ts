@@ -10,8 +10,8 @@ declare module "ffi" {
         C: {}
         load: (this: void, name: string, global?: boolean) => clib
         new: (this: void, ct: (string | ctype), nelem?: number, ...init: any[]) => cdata
-        typeof: (this: void, ct: (string | ctype)) => ctype
-        cast: (this: void, ct: (string | ctype), init: cdata) => cdata
+        typeof: (this: void, ct: (string | ctype), ...init: ctype[]) => ctype
+        cast: (this: void, ct: (string | ctype), ...init: cdata[]) => cdata
         metatype: (this: void, ct: ctype, metatable: object) => ctype
         gc: (this: void, ct: cdata, finalizer: Function) => void
         sizeof: (this: void, ct: (string | ctype | cdata), nelem?: number) => number
