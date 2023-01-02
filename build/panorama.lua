@@ -1,4 +1,4 @@
-local _INFO, cast, typeof, new, find_pattern, create_interface, api, safe_mode, _error, exception, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, Primitive, Null, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
+local _INFO, cast, typeof, new, find_pattern, create_interface, api, safe_mode, _error, exception, exceptionCb, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
   _VERSION = 1.2
 }
@@ -56,7 +56,10 @@ if 1 + 2 == 3 then
   end
 end
 exception = function(msg)
-  return print("Caught exception in HandleScope: ", tostring(msg))
+  return print("Caught exception in V8 HandleScope: ", tostring(msg))
+end
+exceptionCb = function(msg)
+  return print("Caught exception in V8 Function Callback: ", tostring(msg))
 end
 rawgetImpl = function(tbl, key)
   local mtb = getmetatable(tbl)
@@ -149,6 +152,20 @@ v8js_args = function(...)
     pArgv[i - 1] = Value:fromLua(argTbl[i]):getInternal()
   end
   return iArgc, pArgv
+end
+v8js_function = function(callbackFunction)
+  return function(callbackInfo)
+    callbackInfo = FunctionCallbackInfo(callbackInfo)
+    local argTbl = { }
+    local length = callbackInfo:length()
+    if length > 0 then
+      for i = 0, length - 1 do
+        table.insert(argTbl, callbackInfo:get(i))
+      end
+    end
+    local luaReturn = callbackFunction(unpack(argTbl))
+    return callbackInfo:setReturnValue(Value:fromLua(luaReturn):getInternal())
+  end
 end
 is_array = function(val)
   local i = 1
@@ -474,22 +491,25 @@ do
       if val == nil then
         return Null(nativeGetIsolate()):getValue()
       end
-      if type(val) == "boolean" then
+      local valType = type(val)
+      local _exp_1 = valType
+      if "boolean" == _exp_1 then
         return Boolean(nativeGetIsolate(), val):getValue()
-      end
-      if type(val) == "number" then
+      elseif "number" == _exp_1 then
         return Number(nativeGetIsolate(), val):getInstance()
-      end
-      if type(val) == "string" then
+      elseif "string" == _exp_1 then
         return String(nativeGetIsolate(), val):getInstance()
+      elseif "table" == _exp_1 then
+        if is_array(val) then
+          return Array:fromLua(nativeGetIsolate(), val)
+        else
+          return Object:fromLua(nativeGetIsolate(), val)
+        end
+      elseif "function" == _exp_1 then
+        return FunctionTemplate(v8js_function(val)):getFunction()()
+      else
+        return error("Failed to convert from lua to v8js: Unknown type")
       end
-      if type(val) == "table" and is_array(val) then
-        return Array:fromLua(nativeGetIsolate(), val)
-      end
-      if type(val) == "table" then
-        return Object:fromLua(nativeGetIsolate(), val)
-      end
-      return error("Failed to convert from lua to v8js: Unknown type")
     end,
     isUndefined = function(self)
       return v8_dll:get("?IsUndefined@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(self.this)
@@ -782,11 +802,18 @@ do
 end
 do
   local _class_0
-  local _base_0 = { }
+  local _base_0 = {
+    getFunction = function(self)
+      return MaybeLocal(v8_dll:get("?GetFunction@FunctionTemplate@v8@@QAE?AV?$Local@VFunction@v8@@@2@XZ", "void*(__thiscall*)(void*, void*)")(self:this():getInternal(), intbuf)):toLocalChecked()
+    end,
+    getInstance = function(self)
+      return self:this()
+    end
+  }
   _base_0.__index = _base_0
   _class_0 = setmetatable({
     __init = function(self, callback)
-      self.this = MaybeLocal(v8_dll:get("?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PAVIsolate@2@P6AXABV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@@Z", "void*(__cdecl*)(void*,void*,void*,void*,void*,int,int)")(intbuf, nativeGetIsolate(), callback, new("int[1]"), new("int[1]"), 0, 0)):toLocalChecked()
+      self.this = MaybeLocal(v8_dll:get("?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PAVIsolate@2@P6AXABV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@@Z", "void*(__cdecl*)(void*,void*,void*,void*,void*,int,int)")(intbuf, nativeGetIsolate(), cast("void(__cdecl*)(void******)", callback), new("int[1]"), new("int[1]"), 0, 0)):toLocalChecked()
     end,
     __base = _base_0,
     __name = "FunctionTemplate"
@@ -800,6 +827,88 @@ do
   })
   _base_0.__class = _class_0
   FunctionTemplate = _class_0
+end
+do
+  local _class_0
+  local _base_0 = {
+    kHolderIndex = 0,
+    kIsolateIndex = 1,
+    kReturnValueDefaultValueIndex = 2,
+    kReturnValueIndex = 3,
+    kDataIndex = 4,
+    kCalleeIndex = 5,
+    kContextSaveIndex = 6,
+    kNewTargetIndex = 7,
+    getHolder = function(self)
+      return MaybeLocal(self:getImplicitArgs_()[self.kHolderIndex]):toLocalChecked()
+    end,
+    getIsolate = function(self)
+      return Isolate(self:getImplicitArgs_()[self.kIsolateIndex][0])
+    end,
+    getReturnValueDefaultValue = function(self)
+      return Value(new("void*[1]", self:getImplicitArgs_()[self.kReturnValueDefaultValueIndex]))
+    end,
+    getReturnValue = function(self)
+      return Value(new("void*[1]", self:getImplicitArgs_()[self.kReturnValueIndex]))
+    end,
+    setReturnValue = function(self, value)
+      self:getImplicitArgs_()[self.kReturnValueIndex] = cast("void**", value)[0]
+    end,
+    getData = function(self)
+      return MaybeLocal(self:getImplicitArgs_()[self.kDataIndex]):toLocalChecked()
+    end,
+    getCallee = function(self)
+      return MaybeLocal(self:getImplicitArgs_()[self.kCalleeIndex]):toLocalChecked()
+    end,
+    getContextSave = function(self)
+      return MaybeLocal(self:getImplicitArgs_()[self.kContextSaveIndex]):toLocalChecked()
+    end,
+    getNewTarget = function(self)
+      return MaybeLocal(self:getImplicitArgs_()[self.kNewTargetIndex]):toLocalChecked()
+    end,
+    getImplicitArgs_ = function(self)
+      if not (self.this[0] == nullptr) then
+        return self.this[0]
+      end
+    end,
+    getValues_ = function(self)
+      if not (self.this[1] == nullptr) then
+        return self.this[1]
+      end
+    end,
+    getLength_ = function(self)
+      if not (self.this[2] == nullptr) then
+        return self.this[2]
+      end
+    end,
+    length = function(self)
+      return tonumber(cast("int", self:getLength_()))
+    end,
+    get = function(self, i)
+      if self:length() > i then
+        return Value(self:getValues_() - i):toLua()
+      else
+        return
+      end
+    end
+  }
+  _base_0.__index = _base_0
+  _class_0 = setmetatable({
+    __init = function(self, val)
+      self.this = cast("void****", val)
+    end,
+    __base = _base_0,
+    __name = "FunctionCallbackInfo"
+  }, {
+    __index = _base_0,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  FunctionCallbackInfo = _class_0
 end
 do
   local _class_0
@@ -881,6 +990,43 @@ do
     _parent_0.__inherited(_parent_0, _class_0)
   end
   Null = _class_0
+end
+do
+  local _class_0
+  local _parent_0 = Primitive
+  local _base_0 = { }
+  _base_0.__index = _base_0
+  setmetatable(_base_0, _parent_0.__base)
+  _class_0 = setmetatable({
+    __init = function(self, isolate)
+      self.this = Value(cast("uintptr_t", isolate) + 0x56)
+    end,
+    __base = _base_0,
+    __name = "Undefined",
+    __parent = _parent_0
+  }, {
+    __index = function(cls, name)
+      local val = rawget(_base_0, name)
+      if val == nil then
+        local parent = rawget(cls, "__parent")
+        if parent then
+          return parent[name]
+        end
+      else
+        return val
+      end
+    end,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  if _parent_0.__inherited then
+    _parent_0.__inherited(_parent_0, _class_0)
+  end
+  Undefined = _class_0
 end
 do
   local _class_0

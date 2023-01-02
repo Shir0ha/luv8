@@ -52,7 +52,9 @@ if 1+2==3 then
             Persistent(v)\disposeGlobal!
         _error(msg)
 exception = (msg) ->
-    print("Caught exception in HandleScope: ", tostring(msg))
+    print("Caught exception in V8 HandleScope: ", tostring(msg))
+exceptionCb = (msg) ->
+    print("Caught exception in V8 Function Callback: ", tostring(msg))
 rawgetImpl = (tbl, key) ->
     mtb = getmetatable(tbl)
     setmetatable(tbl, nil)
@@ -109,6 +111,17 @@ v8js_args = (...) ->
     for i = 1, iArgc do
         pArgv[i - 1] = Value\fromLua(argTbl[i])\getInternal!
     iArgc,pArgv
+v8js_function = (callbackFunction) ->
+    (callbackInfo) ->
+        callbackInfo = FunctionCallbackInfo(callbackInfo)
+        argTbl = {}
+        length = callbackInfo\length!
+        if length > 0 then
+            for i = 0, length-1 do
+                table.insert(argTbl,callbackInfo\get(i))
+        luaReturn = callbackFunction(unpack(argTbl))
+        callbackInfo\setReturnValue(Value\fromLua(luaReturn)\getInternal!)
+
 is_array = (val) ->
     i=1
     for _ in pairs(val) do
@@ -264,12 +277,23 @@ class Value
     new: (val) => @this = cast("void*", val)
     fromLua: (val) =>
         if val==nil then return Null(nativeGetIsolate!)\getValue!
-        if type(val) == "boolean" then return Boolean(nativeGetIsolate!,val)\getValue!
-        if type(val) == "number" then return Number(nativeGetIsolate!,val)\getInstance!
-        if type(val) == "string" then return String(nativeGetIsolate!,val)\getInstance!
-        if type(val) == "table" and is_array(val) then return Array\fromLua(nativeGetIsolate!,val)
-        if type(val) == "table" then return Object\fromLua(nativeGetIsolate!,val)
-        error("Failed to convert from lua to v8js: Unknown type")
+        valType = type(val)
+        switch valType
+            when "boolean"
+                return Boolean(nativeGetIsolate!,val)\getValue!
+            when "number"
+                return Number(nativeGetIsolate!,val)\getInstance!
+            when "string"
+                return String(nativeGetIsolate!,val)\getInstance!
+            when "table"
+                if is_array(val) then
+                    return Array\fromLua(nativeGetIsolate!,val)
+                else
+                    return Object\fromLua(nativeGetIsolate!,val)
+            when "function"
+                return FunctionTemplate(v8js_function(val))\getFunction!!
+            else
+                error("Failed to convert from lua to v8js: Unknown type")
     isUndefined: => v8_dll\get("?IsUndefined@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isNull: => v8_dll\get("?IsNull@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
     isBoolean: => v8_dll\get("?IsBoolean@Value@v8@@QBE_NXZ", "bool(__thiscall*)(void*)")(@this)
@@ -355,10 +379,47 @@ class ObjectTemplate
     new: =>
         @this = MaybeLocal(v8_dll\get("?New@ObjectTemplate@v8@@SA?AV?$Local@VObjectTemplate@v8@@@2@XZ", "void*(__cdecl*)(void*)")(intbuf))\toLocalChecked!
 
+--to be honest this part is kinda messy, method names are confusing as fuck
 class FunctionTemplate
     new: (callback) =>
-        @this = MaybeLocal(v8_dll\get("?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PAVIsolate@2@P6AXABV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@@Z", "void*(__cdecl*)(void*,void*,void*,void*,void*,int,int)")(intbuf,nativeGetIsolate!,callback,new("int[1]"),new("int[1]"),0,0))\toLocalChecked!
+        @this = MaybeLocal(v8_dll\get("?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PAVIsolate@2@P6AXABV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@@Z", "void*(__cdecl*)(void*,void*,void*,void*,void*,int,int)")(intbuf,nativeGetIsolate!,cast("void(__cdecl*)(void******)",callback),new("int[1]"),new("int[1]"),0,0))\toLocalChecked!
+    getFunction: () =>
+        MaybeLocal(v8_dll\get("?GetFunction@FunctionTemplate@v8@@QAE?AV?$Local@VFunction@v8@@@2@XZ", "void*(__thiscall*)(void*, void*)")(@this!\getInternal!, intbuf))\toLocalChecked!
+    getInstance: => @this!
 
+class FunctionCallbackInfo
+    kHolderIndex: 0
+    kIsolateIndex: 1
+    kReturnValueDefaultValueIndex: 2
+    kReturnValueIndex: 3
+    kDataIndex: 4
+    kCalleeIndex: 5
+    kContextSaveIndex: 6
+    kNewTargetIndex: 7
+    new: (val) => @this = cast("void****", val)
+    getHolder: => MaybeLocal(@getImplicitArgs_![@kHolderIndex])\toLocalChecked! -- does not work (untested)
+    getIsolate: => Isolate(@getImplicitArgs_![@kIsolateIndex][0]) -- does not work (untested)
+    getReturnValueDefaultValue: => Value(new("void*[1]",@getImplicitArgs_![@kReturnValueDefaultValueIndex])) -- does not work (untested)
+    getReturnValue: => Value(new("void*[1]",@getImplicitArgs_![@kReturnValueIndex])) -- does not work (untested)
+    setReturnValue: (value) => @getImplicitArgs_![@kReturnValueIndex] = cast("void**",value)[0] --works
+    getData: => MaybeLocal(@getImplicitArgs_![@kDataIndex])\toLocalChecked! -- does not work (untested)
+    getCallee: => MaybeLocal(@getImplicitArgs_![@kCalleeIndex])\toLocalChecked! -- does not work (untested)
+    getContextSave: => MaybeLocal(@getImplicitArgs_![@kContextSaveIndex])\toLocalChecked! -- does not work (untested)
+    getNewTarget: => MaybeLocal(@getImplicitArgs_![@kNewTargetIndex])\toLocalChecked! -- does not work (untested)
+    getImplicitArgs_: => return @this[0] unless @this[0] == nullptr
+    getValues_: => return @this[1] unless @this[1] == nullptr
+    getLength_: => return @this[2] unless @this[2] == nullptr
+    length: => tonumber(cast("int",@getLength_!))
+    get: (i) => -- so sad we can't use __index lol
+        -- if ( (int)a1[2] > 0 )
+        --   v8 = a1[1];
+        -- else
+        --   v8 = *(_DWORD *)(*a1 + 4) + 56;
+        if @length! > i then
+            return Value(@getValues_! - i)\toLua!
+        else
+            --well if you look at the assembly code, normally v8 will return v8::Undefined which is pIsolate+0x56, however we don't need that extra translation from v8 to lua so we can just return nothing instead lol
+            return
 
 class Primitive extends Value
     new: (val) => @this = val
@@ -367,6 +428,9 @@ class Primitive extends Value
 
 class Null extends Primitive
     new: (isolate) => @this = Value(cast("uintptr_t", isolate) + 0x48)
+
+class Undefined extends Primitive
+    new: (isolate) => @this = Value(cast("uintptr_t", isolate) + 0x56)
 
 class Boolean extends Primitive
     new: (isolate, bool) => @this = Value(cast("uintptr_t", isolate) + (if bool then 0x4C else 0x50))
