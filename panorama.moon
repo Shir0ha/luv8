@@ -20,7 +20,7 @@ import cast, typeof, new from ffi
 --#pragma region compatibility_layer
 find_pattern = () -> error("Unsupported provider (e.g. gamesense, neverlose)")
 create_interface = () -> error("Unsupported provider (e.g. gamesense, neverlose)")
-api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and "primordial" or (math_utils == nil and "pandora" or "legion")) or "memesense") or "legendware")
+api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and "primordial" or "legion") or "pandora") or "memesense") or "legendware")
 switch api
     when "ev0lve"
         find_pattern = utils.find_pattern

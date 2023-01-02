@@ -23,7 +23,7 @@ end
 create_interface = function()
   return error("Unsupported provider (e.g. gamesense, neverlose)")
 end
-api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and "primordial" or (math_utils == nil and "pandora" or "legion")) or "memesense") or "legendware")
+api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and "primordial" or "legion") or "pandora") or "memesense") or "legendware")
 local _exp_0 = api
 if "ev0lve" == _exp_0 then
   find_pattern = utils.find_pattern
