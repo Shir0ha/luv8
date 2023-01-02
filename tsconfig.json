@@ -23,6 +23,9 @@
         "noImplicitSelf": true,
         "luaLibImport": "inline",
         "luaBundleEntry": "src/main.ts",
-        "luaBundle": "build/panorama.lua"
+        "luaBundle": "build/panorama.lua",
+        "luaPlugins": [
+            { "name": "./extensions.js" }
+        ]
     }
 }
