@@ -1,0 +1,28 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "lib": [
+            "esnext",
+            "dom"
+        ],
+        "module": "esnext",
+        "moduleResolution": "nodenext",
+        "types": [
+            "@typescript-to-lua/language-extensions",
+            "lua-types/jit"
+        ],
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "skipLibCheck": true
+    },
+    "tstl": {
+        "luaTarget": "JIT",
+        "noHeader": true,
+        "noImplicitGlobalVariables": true,
+        "noImplicitSelf": true,
+        "luaLibImport": "inline",
+        "luaBundleEntry": "src/main.ts",
+        "luaBundle": "build/panorama.lua"
+    }
+}

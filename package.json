@@ -1,0 +1,19 @@
+{
+  "name": "luv8",
+  "version": "2.0.0",
+  "description": "Panorama V8 support for lua",
+  "main": "src/main.ts",
+  "scripts": {
+    "build": "tstl",
+    "dev": "tstl --watch"
+  },
+  "repository": "https://github.com/Shir0ha/luv8",
+  "author": "Shir0ha",
+  "license": "Unlicense",
+  "private": false,
+  "devDependencies": {
+    "lua-types": "^2.13.1",
+    "typescript": "^4.9.4",
+    "typescript-to-lua": "^1.11.1"
+  }
+}
