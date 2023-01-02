@@ -7,7 +7,7 @@
 -------------------------------------------------------
 local *
 
-_INFO = {_VERSION: 1.2}
+_INFO = {_VERSION: 1.3}
 
 setmetatable(_INFO,{
     __call: => self._VERSION,
@@ -20,7 +20,7 @@ import cast, typeof, new from ffi
 --#pragma region compatibility_layer
 find_pattern = () -> error("Unsupported provider (e.g. gamesense, neverlose)")
 create_interface = () -> error("Unsupported provider (e.g. gamesense, neverlose)")
-api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and "primordial" or "pandora") or "memesense") or "legendware")
+api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and "primordial" or (math_utils == nil and "pandora" or "legion")) or "memesense") or "legendware")
 switch api
     when "ev0lve"
         find_pattern = utils.find_pattern
@@ -40,8 +40,11 @@ switch api
     when "pandora"
         find_pattern = client.find_sig
         create_interface = client.create_interface
+    when "legion"
+        find_pattern = memory.find_pattern
+        create_interface = memory.create_interface
 safe_mode = xpcall and true or false
-print(("\nluv8 panorama library;\napi: %s;\nenabled features: safe_mode: %s; rawops: %s; ffi.C: %s")\format(api, tostring(safe_mode), tostring(rawget ~= nil), tostring(ffi.C ~= nil)))
+print(("\nluv8 panorama library %s;\napi: %s;\nenabled features: safe_mode: %s; rawops: %s; ffi.C: %s")\format(_INFO._VERSION, api, tostring(safe_mode), tostring(rawget ~= nil), tostring(ffi.C ~= nil)))
 --#pragma endregion compatibility_layer
 
 --#pragma region helper_functions
@@ -119,8 +122,13 @@ v8js_function = (callbackFunction) ->
         if length > 0 then
             for i = 0, length-1 do
                 table.insert(argTbl,callbackInfo\get(i))
-        luaReturn = callbackFunction(unpack(argTbl))
-        callbackInfo\setReturnValue(Value\fromLua(luaReturn)\getInternal!)
+        val = nil
+        if safe_mode then
+            status, ret = xpcall((() -> callbackFunction(unpack(argTbl))),exceptionCb)
+            if status then val = ret
+        else
+            val = callbackFunction(unpack(argTbl))
+        callbackInfo\setReturnValue(Value\fromLua(val)\getInternal!)
 
 is_array = (val) ->
     i=1

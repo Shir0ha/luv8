@@ -1,6 +1,6 @@
 local _INFO, cast, typeof, new, find_pattern, create_interface, api, safe_mode, _error, exception, exceptionCb, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
-  _VERSION = 1.2
+  _VERSION = 1.3
 }
 setmetatable(_INFO, {
   __call = function(self)
@@ -23,7 +23,7 @@ end
 create_interface = function()
   return error("Unsupported provider (e.g. gamesense, neverlose)")
 end
-api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and "primordial" or "pandora") or "memesense") or "legendware")
+api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and "primordial" or (math_utils == nil and "pandora" or "legion")) or "memesense") or "legendware")
 local _exp_0 = api
 if "ev0lve" == _exp_0 then
   find_pattern = utils.find_pattern
@@ -43,9 +43,12 @@ elseif "legendware" == _exp_0 then
 elseif "pandora" == _exp_0 then
   find_pattern = client.find_sig
   create_interface = client.create_interface
+elseif "legion" == _exp_0 then
+  find_pattern = memory.find_pattern
+  create_interface = memory.create_interface
 end
 safe_mode = xpcall and true or false
-print(("\nluv8 panorama library;\napi: %s;\nenabled features: safe_mode: %s; rawops: %s; ffi.C: %s"):format(api, tostring(safe_mode), tostring(rawget ~= nil), tostring(ffi.C ~= nil)))
+print(("\nluv8 panorama library %s;\napi: %s;\nenabled features: safe_mode: %s; rawops: %s; ffi.C: %s"):format(_INFO._VERSION, api, tostring(safe_mode), tostring(rawget ~= nil), tostring(ffi.C ~= nil)))
 _error = error
 if 1 + 2 == 3 then
   error = function(msg)
@@ -163,8 +166,18 @@ v8js_function = function(callbackFunction)
         table.insert(argTbl, callbackInfo:get(i))
       end
     end
-    local luaReturn = callbackFunction(unpack(argTbl))
-    return callbackInfo:setReturnValue(Value:fromLua(luaReturn):getInternal())
+    local val = nil
+    if safe_mode then
+      local status, ret = xpcall((function()
+        return callbackFunction(unpack(argTbl))
+      end), exceptionCb)
+      if status then
+        val = ret
+      end
+    else
+      val = callbackFunction(unpack(argTbl))
+    end
+    return callbackInfo:setReturnValue(Value:fromLua(val):getInternal())
   end
 end
 is_array = function(val)
