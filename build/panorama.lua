@@ -880,19 +880,13 @@ do
       return MaybeLocal(self:getImplicitArgs_()[self.kNewTargetIndex]):toLocalChecked()
     end,
     getImplicitArgs_ = function(self)
-      if not (self.this[0] == nullptr) then
-        return self.this[0]
-      end
+      return self.this[0]
     end,
     getValues_ = function(self)
-      if not (self.this[1] == nullptr) then
-        return self.this[1]
-      end
+      return self.this[1]
     end,
     getLength_ = function(self)
-      if not (self.this[2] == nullptr) then
-        return self.this[2]
-      end
+      return self.this[2]
     end,
     length = function(self)
       return tonumber(cast("int", self:getLength_()))

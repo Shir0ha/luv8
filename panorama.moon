@@ -414,9 +414,9 @@ class FunctionCallbackInfo
     getCallee: => MaybeLocal(@getImplicitArgs_![@kCalleeIndex])\toLocalChecked! -- does not work (untested)
     getContextSave: => MaybeLocal(@getImplicitArgs_![@kContextSaveIndex])\toLocalChecked! -- does not work (untested)
     getNewTarget: => MaybeLocal(@getImplicitArgs_![@kNewTargetIndex])\toLocalChecked! -- does not work (untested)
-    getImplicitArgs_: => return @this[0] unless @this[0] == nullptr
-    getValues_: => return @this[1] unless @this[1] == nullptr
-    getLength_: => return @this[2] unless @this[2] == nullptr
+    getImplicitArgs_: => return @this[0]
+    getValues_: => return @this[1]
+    getLength_: => return @this[2]
     length: => tonumber(cast("int",@getLength_!))
     get: (i) => -- so sad we can't use __index lol
         -- if ( (int)a1[2] > 0 )
