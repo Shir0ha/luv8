@@ -1,6 +1,6 @@
-local _INFO, cast, typeof, new, find_pattern, create_interface, api, safe_mode, _error, exception, exceptionCb, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
+local _INFO, cast, typeof, new, find_pattern, create_interface, api, safe_mode, ffiCEnabled, _error, exception, exceptionCb, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
-  _VERSION = 1.3
+  _VERSION = 1.4
 }
 setmetatable(_INFO, {
   __call = function(self)
@@ -18,12 +18,12 @@ do
   cast, typeof, new = _obj_0.cast, _obj_0.typeof, _obj_0.new
 end
 find_pattern = function()
-  return error("Unsupported provider (e.g. gamesense, neverlose)")
+  return error("Unsupported provider (e.g. neverlose)")
 end
 create_interface = function()
-  return error("Unsupported provider (e.g. gamesense, neverlose)")
+  return error("Unsupported provider (e.g. neverlose)")
 end
-api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and "primordial" or "legion") or "pandora") or "memesense") or "legendware")
+api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and "primordial" or "gamesense") or "legion") or "pandora") or "memesense") or "legendware")
 local _exp_0 = api
 if "ev0lve" == _exp_0 then
   find_pattern = utils.find_pattern
@@ -46,9 +46,19 @@ elseif "pandora" == _exp_0 then
 elseif "legion" == _exp_0 then
   find_pattern = memory.find_pattern
   create_interface = memory.create_interface
+elseif "gamesense" == _exp_0 then
+  find_pattern = function(moduleName, pattern)
+    local gsPattern = ""
+    for token in string.gmatch(pattern, "%S+") do
+      gsPattern = gsPattern .. (token == "?" and "\xCC" or string.char(tonumber(token, 16)))
+    end
+    return client.find_signature(moduleName, gsPattern)
+  end
+  create_interface = client.create_interface
 end
 safe_mode = xpcall and true or false
-print(("\nluv8 panorama library %s;\napi: %s;\nenabled features: safe_mode: %s; rawops: %s; ffi.C: %s"):format(_INFO._VERSION, api, tostring(safe_mode), tostring(rawget ~= nil), tostring(ffi.C ~= nil)))
+ffiCEnabled = ffi.C and api ~= "gamesense"
+print(("\nluv8 panorama library %s;\napi: %s;\nenabled features: safe_mode: %s; rawops: %s; ffi.C: %s"):format(_INFO._VERSION, api, tostring(safe_mode), tostring(rawget ~= nil), tostring(ffiCEnabled)))
 _error = error
 if 1 + 2 == 3 then
   error = function(msg)
@@ -118,7 +128,7 @@ proc_bind = (function()
   fnGetModuleHandle = function()
     return error("Failed to load GetModuleHandleA")
   end
-  if ffi.C then
+  if ffiCEnabled then
     ffi.cdef([[            uint32_t GetProcAddress(uint32_t, const char*);
             uint32_t GetModuleHandleA(const char*);
         ]])
@@ -127,6 +137,19 @@ proc_bind = (function()
   else
     fnGetProcAddress = cast("uint32_t(__stdcall*)(uint32_t, const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? A3 ? ? ? ? EB 05")) + 2)[0][0])
     fnGetModuleHandle = cast("uint32_t(__stdcall*)(const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? 85 C0 74 0B")) + 2)[0][0])
+  end
+  if api == "gamesense" then
+    local proxyAddr = find_pattern("engine.dll", "51 C3")
+    local fnGetProcAddressAddr = cast("void*", fnGetProcAddress)
+    fnGetProcAddress = function(moduleHandle, functionName)
+      local fnGetProcAddressProxy = ffi.cast("uint32_t(__thiscall*)(void*, uint32_t, const char*)", proxyAddr)
+      return fnGetProcAddressProxy(fnGetProcAddressAddr, moduleHandle, functionName)
+    end
+    local fnGetModuleHandleAddr = cast("void*", fnGetModuleHandle)
+    fnGetModuleHandle = function(moduleName)
+      local fnGetModuleHandleProxy = ffi.cast("uint32_t(__thiscall*)(void*, const char*)", proxyAddr)
+      return fnGetModuleHandleProxy(fnGetModuleHandleAddr, moduleName)
+    end
   end
   return function(module_name, function_name, typedef)
     return cast(typeof(typedef), fnGetProcAddress(fnGetModuleHandle(module_name), function_name))
@@ -895,7 +918,7 @@ do
       if self:length() > i then
         return Value(self:getValues_() - i):toLua()
       else
-        return
+        return 
       end
     end
   }

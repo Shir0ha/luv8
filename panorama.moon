@@ -7,7 +7,7 @@
 -------------------------------------------------------
 local *
 
-_INFO = {_VERSION: 1.3}
+_INFO = {_VERSION: 1.4}
 
 setmetatable(_INFO,{
     __call: => self._VERSION,
