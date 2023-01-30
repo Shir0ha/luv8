@@ -106,7 +106,7 @@ proc_bind = (() ->
     -- Gamesense really doesn't like when you call code in windows DLL's
     if api == "gamesense"
         -- we need to use a gadget inside games code to call our function
-        proxyAddr = find_pattern("engine.dll", "51 C3") -- CALL ECX
+        proxyAddr = find_pattern("engine.dll", "51 C3") -- PUSH ECX; RET
         fnGetProcAddressAddr = cast("void*", fnGetProcAddress)
         fnGetProcAddress = (moduleHandle, functionName) ->
             fnGetProcAddressProxy = ffi.cast("uint32_t(__thiscall*)(void*, uint32_t, const char*)", proxyAddr)
