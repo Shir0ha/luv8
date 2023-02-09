@@ -7,7 +7,7 @@
 -------------------------------------------------------
 local *
 
-_INFO = {_VERSION: 1.3}
+_INFO = {_VERSION: 1.4}
 
 setmetatable(_INFO,{
     __call: => self._VERSION,
@@ -18,9 +18,9 @@ if _G and not ffi then export ffi = require("ffi") -- ev0lve api be like
 import cast, typeof, new from ffi
 
 --#pragma region compatibility_layer
-find_pattern = () -> error("Unsupported provider (e.g. gamesense, neverlose)")
-create_interface = () -> error("Unsupported provider (e.g. gamesense, neverlose)")
-api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and "primordial" or "legion") or "pandora") or "memesense") or "legendware")
+find_pattern = () -> error("Unsupported provider (e.g. neverlose)")
+create_interface = () -> error("Unsupported provider (e.g. neverlose)")
+api = (_G == nil) and (info.fatality == nil and "ev0lve" or "fa7ality") or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and "primordial" or "gamesense") or "legion") or "pandora") or "memesense") or "legendware")
 switch api
     when "ev0lve"
         find_pattern = utils.find_pattern
@@ -43,8 +43,17 @@ switch api
     when "legion"
         find_pattern = memory.find_pattern
         create_interface = memory.create_interface
+    when "gamesense"
+        find_pattern = (moduleName, pattern) ->
+            gsPattern = ""
+            for token in string.gmatch(pattern, "%S+") do
+                gsPattern = gsPattern .. (token == "?" and "\xCC" or string.char(tonumber(token, 16)))
+            return client.find_signature(moduleName, gsPattern)
+        create_interface = client.create_interface
 safe_mode = xpcall and true or false
-print(("\nluv8 panorama library %s;\napi: %s;\nenabled features: safe_mode: %s; rawops: %s; ffi.C: %s")\format(_INFO._VERSION, api, tostring(safe_mode), tostring(rawget ~= nil), tostring(ffi.C ~= nil)))
+
+ffiCEnabled = ffi.C and api ~= "gamesense"
+print(("\nluv8 panorama library %s;\napi: %s;\nenabled features: safe_mode: %s; rawops: %s; ffi.C: %s")\format(_INFO._VERSION, api, tostring(safe_mode), tostring(rawget ~= nil), tostring(ffiCEnabled)))
 --#pragma endregion compatibility_layer
 
 --#pragma region helper_functions
@@ -84,7 +93,7 @@ vtable_thunk = (i, ct) ->
 proc_bind = (() ->
     fnGetProcAddress = () -> error("Failed to load GetProcAddress")
     fnGetModuleHandle = () -> error("Failed to load GetModuleHandleA")
-    if ffi.C -- I did this mainly because memesense pattern scan is fucked up
+    if ffiCEnabled -- I did this mainly because memesense pattern scan is fucked up
         ffi.cdef[[
             uint32_t GetProcAddress(uint32_t, const char*);
             uint32_t GetModuleHandleA(const char*);
@@ -94,6 +103,18 @@ proc_bind = (() ->
     else
         fnGetProcAddress = cast("uint32_t(__stdcall*)(uint32_t, const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? A3 ? ? ? ? EB 05")) + 2)[0][0])
         fnGetModuleHandle = cast("uint32_t(__stdcall*)(const char*)", cast("uint32_t**", cast("uint32_t", find_pattern("engine.dll", "FF 15 ? ? ? ? 85 C0 74 0B")) + 2)[0][0])
+    -- Gamesense really doesn't like when you call code in windows DLL's
+    if api == "gamesense"
+        -- we need to use a gadget inside games code to call our function
+        proxyAddr = find_pattern("engine.dll", "51 C3") -- PUSH ECX; RET
+        fnGetProcAddressAddr = cast("void*", fnGetProcAddress)
+        fnGetProcAddress = (moduleHandle, functionName) ->
+            fnGetProcAddressProxy = ffi.cast("uint32_t(__thiscall*)(void*, uint32_t, const char*)", proxyAddr)
+            return fnGetProcAddressProxy(fnGetProcAddressAddr, moduleHandle, functionName)
+        fnGetModuleHandleAddr = cast("void*", fnGetModuleHandle)
+        fnGetModuleHandle = (moduleName) ->
+            fnGetModuleHandleProxy = ffi.cast("uint32_t(__thiscall*)(void*, const char*)", proxyAddr)
+            return fnGetModuleHandleProxy(fnGetModuleHandleAddr, moduleName)
     (module_name, function_name, typedef) ->
         cast(typeof(typedef), fnGetProcAddress(fnGetModuleHandle(module_name), function_name))
     )!
