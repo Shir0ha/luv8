@@ -19,16 +19,16 @@
 ### pandora
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 - released on [forum](https://pandora.gg/threads/panorama-library.651/)
+### gamesense
+- use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### memesense
-- tbh this cheat, especially the lua ffi api is the worst I've ever seen
-- a lot of things didn't work lmao and I had to implement some ghetto workarounds
-- crashes when return certain objects (for instance the function $.Msg) FOR NO REASON, like it's not even an issue with my code, I just called UIEngine[113] (RunScript) **AND AFTER 1 SECOND (YES IT'S NOT INSTANT CRASH) THE CHEAT WILL FUCK ITSELF UP**
-- congrats for being the first cheat that can't properly support panorama lib
+- buggy & may crash from time to time
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### other cheats  
-- luv8 currently only provides compatibility with ev0lve, primordial, pandora, legendware, memesense and fatality, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
+- luv8 currently only provides compatibility with ev0lve, primordial, pandora, legendware, memesense, fatality, and gamesense, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
 
 ## API
+### supports both gamesense & neverlose style api
 ### `panorama.loadstring`  
 ```lua
 panorama.loadstring(js_code: string[, panel: string]) : function
@@ -40,7 +40,7 @@ returns a function handle for calling the compiled code
 panorama.open([panel: string]) : table (V8PersistentProxy)
 ```  
 > opens a handle to the v8 global object of the v8::Context of the specified panel and
-returns a V8PersistentProxy  
+returns a V8PersistentProxy
 ### `panorama.RunScript`  
 ```lua
 panorama.RunScript(js_code: string[, panel: ffi::void*[, xml_context: string]]) : ffi::int
@@ -75,6 +75,8 @@ panorama.GetPanel(panel: string[, fallback: string]): ffi::void* (UIPanel)
   - implemented `V8Local`, `V8MaybeLocal`, `V8Value` in lua
   - rewritten & formated the code in moonscript
   - created at least 1 bug in each and every feature and fixed some of them
+- [@nezu](https://github.com/dumbasPL)
+  - added gamesense support
 - ev0lve
   - the development of this library was 99% done on [ev0lve.xyz](https://ev0lve.xyz/)
 - primordial
@@ -83,5 +85,4 @@ panorama.GetPanel(panel: string[, fallback: string]): ffi::void* (UIPanel)
 ## some other stuff
 - [old footage of the panorama lib before it was rewritten in moonscript](https://www.youtube.com/watch?v=2i9itIjnDlo)  
 - [confusing stuff when we were trying to figure out globalizeReference](https://i.imgur.com/cX9hedq.png)
-- [table overflow error due to our previously retarded vtable_thunk implementation](https://i.imgur.com/cX9hedq.png)
 - [??????????](https://i.imgur.com/hJpVJtt.png)
