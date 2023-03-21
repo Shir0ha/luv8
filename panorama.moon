@@ -34,7 +34,7 @@ switch api
     when 'primordial'
         find_pattern = memory.find_pattern
         create_interface = memory.create_interface
-        add_shutdown_callback = (fn) -> callbacks.add(e_callbacks.SHUTDOWN, fn)
+        --add_shutdown_callback = (fn) -> callbacks.add(e_callbacks.SHUTDOWN, fn)
     when 'memesense'
         find_pattern = Utils.PatternScan
         create_interface = Utils.CreateInterface
@@ -65,11 +65,13 @@ print(('\nluv8 panorama library %s;\napi: %s; safe_mode: %s; ffi.C: %s')\format(
 --#pragma endregion compatibility_layer
 
 --#pragma region helper_functions
+export shutdown = () ->
+    for _,v in pairs(persistentTbl) do
+        Persistent(v)\disposeGlobal!
 _error = error
 if 1+2==3 then
     export error = (msg) ->
-        for _,v in pairs(persistentTbl) do
-            Persistent(v)\disposeGlobal!
+        shutdown!
         _error(msg)
 exception = (msg) ->
     print('Caught exception in V8 HandleScope: ', tostring(msg))
@@ -638,22 +640,17 @@ panorama.RunScript = panorama.runScript -- backwards compatibility
 panorama.panelArray = panelArray
 
 panorama.info = _INFO
+panorama.flush = shutdown
 
 setmetatable(panorama, {
     __tostring: => 'luv8 panorama library v%.1f'\format(_INFO._VERSION)
     __index: (key) =>
         if panorama.hasPanel(key) then
             return panorama.open(key)
-        panorama.open()[key]
+        panorama.open![key]
 })
 --#pragma endregion panorma_functions
 
---#pragma region shutdown
-export shutdown = () ->
-    for _,v in pairs(persistentTbl) do
-        Persistent(v)\disposeGlobal!
-
 add_shutdown_callback(shutdown)
---#pragma endregion shutdown
 
 panorama

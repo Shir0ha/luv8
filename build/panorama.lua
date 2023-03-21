@@ -1,6 +1,6 @@
-local _INFO, ffi, cast, typeof, new, find_pattern, create_interface, add_shutdown_callback, api, safe_mode, ffiCEnabled, _error, exception, exceptionCb, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray, shutdown
+local _INFO, ffi, cast, typeof, new, find_pattern, create_interface, add_shutdown_callback, api, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
-  _VERSION = 1.5
+  _VERSION = 1.6
 }
 setmetatable(_INFO, {
   __call = function(self)
@@ -37,9 +37,6 @@ elseif 'fa7ality' == _exp_0 then
 elseif 'primordial' == _exp_0 then
   find_pattern = memory.find_pattern
   create_interface = memory.create_interface
-  add_shutdown_callback = function(fn)
-    return callbacks.add(e_callbacks.SHUTDOWN, fn)
-  end
 elseif 'memesense' == _exp_0 then
   find_pattern = Utils.PatternScan
   create_interface = Utils.CreateInterface
@@ -77,12 +74,15 @@ end
 safe_mode = xpcall and true or false
 ffiCEnabled = ffi.C and api ~= 'gamesense'
 print(('\nluv8 panorama library %s;\napi: %s; safe_mode: %s; ffi.C: %s'):format(_INFO._VERSION, api, tostring(safe_mode), tostring(ffiCEnabled)))
+shutdown = function()
+  for _, v in pairs(persistentTbl) do
+    Persistent(v):disposeGlobal()
+  end
+end
 _error = error
 if 1 + 2 == 3 then
   error = function(msg)
-    for _, v in pairs(persistentTbl) do
-      Persistent(v):disposeGlobal()
-    end
+    shutdown()
     return _error(msg)
   end
 end
@@ -1588,6 +1588,7 @@ panorama.GetPanel = panorama.getPanel
 panorama.RunScript = panorama.runScript
 panorama.panelArray = panelArray
 panorama.info = _INFO
+panorama.flush = shutdown
 setmetatable(panorama, {
   __tostring = function(self)
     return ('luv8 panorama library v%.1f'):format(_INFO._VERSION)
@@ -1599,10 +1600,5 @@ setmetatable(panorama, {
     return panorama.open()[key]
   end
 })
-shutdown = function()
-  for _, v in pairs(persistentTbl) do
-    Persistent(v):disposeGlobal()
-  end
-end
 add_shutdown_callback(shutdown)
 return panorama
