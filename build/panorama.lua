@@ -1580,9 +1580,9 @@ panorama.open = function(panel)
   if panel == 'CSGOHub' then
     fallback = 'CSGOMainMenu'
   end
-  return HandleScope()(function()
-    return Context(Isolate():getCurrentContext()):global():toValueChecked():toLua(), panorama.GetPanel(panel, fallback)
-  end)
+  return HandleScope()((function()
+    return Context(Isolate():getCurrentContext()):global():toValueChecked():toLua()
+  end), panorama.GetPanel(panel, fallback))
 end
 panorama.GetPanel = panorama.getPanel
 panorama.RunScript = panorama.runScript

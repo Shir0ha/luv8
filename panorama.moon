@@ -631,7 +631,7 @@ panorama.open = (panel = 'CSGOJsRegistration') ->
     fallback = 'CSGOJsRegistration'
     if panel == 'CSGOMainMenu' then fallback = 'CSGOHub'
     if panel == 'CSGOHub' then fallback = 'CSGOMainMenu'
-    HandleScope!(() -> Context(Isolate()\getCurrentContext!)\global!\toValueChecked!\toLua!, panorama.GetPanel(panel, fallback))
+    HandleScope!((() -> Context(Isolate()\getCurrentContext!)\global!\toValueChecked!\toLua!), panorama.GetPanel(panel, fallback))
 
 panorama.GetPanel = panorama.getPanel -- backwards compatibility
 panorama.RunScript = panorama.runScript -- backwards compatibility
