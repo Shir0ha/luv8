@@ -1,5 +1,8 @@
 # luv8 - Panorama V8 support for lua  
 
+## Will there be cs2 support
+yes.
+
 ## build  
 1. download and install [moonc compiler](https://moonscript.org/)  
 2. `./moonc panorama.moon`
@@ -7,7 +10,7 @@
 ## install  
 
 ### ev0lve  
-- use the [workshop version](https://ev0lve.xyz/scripts/panorama-library.50/) on forum
+- use the [workshop version](https://ev0lve.xyz/resources/panorama.43/) on forum
 ### primordial  
 - use the [workshop version](https://primordial.dev/resources/panorama-library.248/) on forum
 - the workshop version may be outdated (due to [@Shir0ha](https://github.com/Shir0ha) being ~~lazy af~~ **DEAD**), please use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
