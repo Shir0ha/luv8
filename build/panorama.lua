@@ -24,7 +24,7 @@ end
 add_shutdown_callback = function()
   return print('WARNING: Cleanup before shutdown disabled')
 end
-api = (_G == nil) and (info.fatality == nil and 'ev0lve' or 'fa7ality') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and 'primordial' or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
+api = (_G == nil) and (info.fatality == nil and 'ev0lve' or 'fa7ality') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
 local _exp_0 = api
 if 'ev0lve' == _exp_0 then
   find_pattern = utils.find_pattern
@@ -69,6 +69,12 @@ elseif 'gamesense' == _exp_0 then
   create_interface = client.create_interface
   add_shutdown_callback = function(fn)
     return client.set_event_callback('shutdown', fn)
+  end
+elseif 'nixware' == _exp_0 then
+  find_pattern = client.find_pattern
+  create_interface = se.create_interface
+  add_shutdown_callback = function(fn)
+    return client.register_callback("unload", fn)
   end
 end
 safe_mode = xpcall and true or false
@@ -917,7 +923,7 @@ do
       if self:length() > i then
         return Value(self:getValues_() - i):toLua()
       else
-        return
+        return 
       end
     end
   }
