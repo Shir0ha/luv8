@@ -46,6 +46,11 @@ panorama.open([panel: string]) : table (V8PersistentProxy)
 ```  
 > opens a handle to the v8 global object of the v8::Context of the specified panel and
 returns a V8PersistentProxy
+### `panorama.flush`  
+```lua
+panorama.flush() : nil
+```  
+> removes all globalized references
 ### `panorama.RunScript`  
 ```lua
 panorama.RunScript(js_code: string[, panel: ffi::void*[, xml_context: string]]) : ffi::int
@@ -56,6 +61,11 @@ panorama.RunScript(js_code: string[, panel: ffi::void*[, xml_context: string]]) 
 panorama.GetPanel(panel: string[, fallback: string]): ffi::void* (UIPanel)
 ```  
 > returns a pointer to the given panel name, raises error upon failure
+### `panorama.GetIsolate`  
+```lua
+panorama.GetIsolate(): Isolate
+```  
+> returns the Isolate object
 
 ## contributions
 - [@dhdjSYS](https://github.com/dhdjSYS)
@@ -82,6 +92,8 @@ panorama.GetPanel(panel: string[, fallback: string]): ffi::void* (UIPanel)
   - created at least 1 bug in each and every feature and fixed some of them
 - [@nezu](https://github.com/dumbasPL)
   - added gamesense support
+- [@lztqq](https://github.com/lztqq)
+  - added nixware support
 - ev0lve
   - the development of this library was 99% done on [ev0lve.xyz](https://ev0lve.xyz/)
 - primordial
