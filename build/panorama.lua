@@ -1,4 +1,4 @@
-local _INFO, ffi, cast, typeof, new, find_pattern, create_interface, add_shutdown_callback, api, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
+local _INFO, ffi, cast, typeof, new, string, metatype, find_pattern, create_interface, add_shutdown_callback, api, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, pIsolate, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
   _VERSION = 1.6
 }
@@ -13,7 +13,7 @@ setmetatable(_INFO, {
 ffi = require('ffi')
 do
   local _obj_0 = ffi
-  cast, typeof, new = _obj_0.cast, _obj_0.typeof, _obj_0.new
+  cast, typeof, new, string, metatype = _obj_0.cast, _obj_0.typeof, _obj_0.new, _obj_0.string, _obj_0.metatype
 end
 find_pattern = function()
   return error('Unsupported provider (e.g. neverlose)')
@@ -128,7 +128,7 @@ proc_bind = (function()
     return error('Failed to load GetModuleHandleA')
   end
   if ffiCEnabled then
-    ffi.cdef([[            uint32_t GetProcAddress(uint32_t, const char*);
+    cdef([[            uint32_t GetProcAddress(uint32_t, const char*);
             uint32_t GetModuleHandleA(const char*);
         ]])
     fnGetProcAddress = ffi.C.GetProcAddress
@@ -141,12 +141,12 @@ proc_bind = (function()
     local proxyAddr = find_pattern('engine.dll', '51 C3')
     local fnGetProcAddressAddr = cast('void*', fnGetProcAddress)
     fnGetProcAddress = function(moduleHandle, functionName)
-      local fnGetProcAddressProxy = ffi.cast('uint32_t(__thiscall*)(void*, uint32_t, const char*)', proxyAddr)
+      local fnGetProcAddressProxy = cast('uint32_t(__thiscall*)(void*, uint32_t, const char*)', proxyAddr)
       return fnGetProcAddressProxy(fnGetProcAddressAddr, moduleHandle, functionName)
     end
     local fnGetModuleHandleAddr = cast('void*', fnGetModuleHandle)
     fnGetModuleHandle = function(moduleName)
-      local fnGetModuleHandleProxy = ffi.cast('uint32_t(__thiscall*)(void*, const char*)', proxyAddr)
+      local fnGetModuleHandleProxy = cast('uint32_t(__thiscall*)(void*, const char*)', proxyAddr)
       return fnGetModuleHandleProxy(fnGetModuleHandleAddr, moduleName)
     end
   end
@@ -296,6 +296,7 @@ getJavaScriptContextParent = function(panel)
   return jsContexts[panel]
 end
 v8_dll = DllImport('v8.dll')
+pIsolate = nativeGetIsolate()
 persistentTbl = { }
 do
   local _class_0
@@ -304,7 +305,7 @@ do
       return self.this
     end,
     globalize = function(self)
-      local pPersistent = v8_dll:get('?GlobalizeReference@V8@v8@@CAPAPAVObject@internal@2@PAVIsolate@42@PAPAV342@@Z', 'void*(__cdecl*)(void*,void*)')(nativeGetIsolate(), self.this[0])
+      local pPersistent = v8_dll:get('?GlobalizeReference@V8@v8@@CAPAPAVObject@internal@2@PAVIsolate@42@PAPAV342@@Z', 'void*(__cdecl*)(void*,void*)')(pIsolate, self.this[0])
       local persistent = Persistent(pPersistent)
       persistentTbl[persistent:getIdentityHash()] = pPersistent
       return persistent
@@ -524,21 +525,21 @@ do
   local _base_0 = {
     fromLua = function(self, val)
       if val == nil then
-        return Null(nativeGetIsolate()):getValue()
+        return Null(pIsolate):getValue()
       end
       local valType = type(val)
       local _exp_1 = valType
       if 'boolean' == _exp_1 then
-        return Boolean(nativeGetIsolate(), val):getValue()
+        return Boolean(pIsolate, val):getValue()
       elseif 'number' == _exp_1 then
-        return Number(nativeGetIsolate(), val):getInstance()
+        return Number(pIsolate, val):getInstance()
       elseif 'string' == _exp_1 then
-        return String(nativeGetIsolate(), val):getInstance()
+        return String(pIsolate, val):getInstance()
       elseif 'table' == _exp_1 then
         if is_array(val) then
-          return Array:fromLua(nativeGetIsolate(), val)
+          return Array:fromLua(pIsolate, val)
         else
-          return Object:fromLua(nativeGetIsolate(), val)
+          return Object:fromLua(pIsolate, val)
         end
       elseif 'function' == _exp_1 then
         return FunctionTemplate(v8js_function(val)):getFunction()()
@@ -588,7 +589,7 @@ do
     stringValue = function(self)
       local strBuf = new('char*[2]')
       local val = v8_dll:get('??0Utf8Value@String@v8@@QAE@V?$Local@VValue@v8@@@2@@Z', 'struct{char* str; int length;}*(__thiscall*)(void*,void*)')(strBuf, self.this)
-      local s = ffi.string(val.str, val.length)
+      local s = string(val.str, val.length)
       v8_dll:get('??1Utf8Value@String@v8@@QAE@XZ', 'void(__thiscall*)(void*)')(strBuf)
       return s
     end,
@@ -774,7 +775,7 @@ do
     end,
     __call = function(self, ...)
       if self.parent == nil then
-        return self:callAsFunction(Context(Isolate(nativeGetIsolate()):getCurrentContext()):global():toValueChecked():getInternal(), v8js_args(...))
+        return self:callAsFunction(Context(Isolate():getCurrentContext()):global():toValueChecked():getInternal(), v8js_args(...))
       else
         return self:callAsFunction(self.parent:getAsValue():getInternal(), v8js_args(...))
       end
@@ -848,7 +849,7 @@ do
   _base_0.__index = _base_0
   _class_0 = setmetatable({
     __init = function(self, callback)
-      self.this = MaybeLocal(v8_dll:get('?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PAVIsolate@2@P6AXABV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@@Z', 'void*(__cdecl*)(void*,void*,void*,void*,void*,int,int)')(intbuf, nativeGetIsolate(), cast('void(__cdecl*)(void******)', callback), new('int[1]'), new('int[1]'), 0, 0)):toLocalChecked()
+      self.this = MaybeLocal(v8_dll:get('?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PAVIsolate@2@P6AXABV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@@Z', 'void*(__cdecl*)(void*,void*,void*,void*,void*,int,int)')(intbuf, pIsolate, cast('void(__cdecl*)(void******)', callback), new('int[1]'), new('int[1]'), 0, 0)):toLocalChecked()
     end,
     __base = _base_0,
     __name = "FunctionTemplate"
@@ -1251,7 +1252,7 @@ do
   _class_0 = setmetatable({
     __init = function(self, val)
       if val == nil then
-        val = nativeGetIsolate()
+        val = pIsolate
       end
       self.this = val
     end,
@@ -1303,13 +1304,13 @@ do
   local _class_0
   local _base_0 = {
     enter = function(self)
-      return v8_dll:get('??0HandleScope@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*,void*)')(self.this, nativeGetIsolate())
+      return v8_dll:get('??0HandleScope@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*,void*)')(self.this, pIsolate)
     end,
     exit = function(self)
       return v8_dll:get('??1HandleScope@v8@@QAE@XZ', 'void(__thiscall*)(void*)')(self.this)
     end,
     createHandle = function(self, val)
-      return v8_dll:get('?CreateHandle@HandleScope@v8@@KAPAPAVObject@internal@2@PAVIsolate@42@PAV342@@Z', 'void**(__cdecl*)(void*,void*)')(nativeGetIsolate(), val)
+      return v8_dll:get('?CreateHandle@HandleScope@v8@@KAPAPAVObject@internal@2@PAVIsolate@42@PAV342@@Z', 'void**(__cdecl*)(void*,void*)')(pIsolate, val)
     end,
     __call = function(self, func, panel)
       if panel == nil then
@@ -1369,7 +1370,7 @@ do
   local _class_0
   local _base_0 = {
     enter = function(self)
-      return v8_dll:get('??0TryCatch@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*,void*)')(self.this, nativeGetIsolate())
+      return v8_dll:get('??0TryCatch@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*,void*)')(self.this, pIsolate)
     end,
     exit = function(self)
       return v8_dll:get('??1TryCatch@v8@@QAE@XZ', 'void(__thiscall*)(void*)')(self.this)
@@ -1412,7 +1413,7 @@ do
       return __thiscall(cast('void**(__thiscall*)(void*,void*,const char*,const char*)', api == 'memesense' and find_pattern('panorama.dll', 'E8 ? ? ? ? 8B 4C 24 10 FF 15') - 2816 or find_pattern('panorama.dll', '55 8B EC 83 E4 F8 83 EC 64 53 8B D9')), UIEngine:getInstance())(panel, source, layout)
     end,
     loadstring = function(self, str, panel)
-      local isolate = Isolate(nativeGetIsolate())
+      local isolate = Isolate()
       local handleScope = HandleScope()
       local tryCatch = TryCatch()
       isolate:enter()
@@ -1481,7 +1482,7 @@ CUtlVector_Constructor_t = typeof([[    struct {
         $ *m_pElements;
     }
 ]], PanelInfo_t, PanelInfo_t)
-ffi.metatype(CUtlVector_Constructor_t, {
+metatype(CUtlVector_Constructor_t, {
   __index = {
     Count = function(self)
       return self.m_Memory.m_nAllocationCount
@@ -1511,7 +1512,7 @@ panelArrayOffset = cast('unsigned int*', cast('uintptr_t**', UIEngine:getInstanc
 panelArray = cast(panelList, cast('uintptr_t', UIEngine:getInstance()) + panelArrayOffset)
 panorama.hasPanel = function(panelName)
   for i, v in ipairs(panelArray) do
-    local curPanelName = ffi.string(nativeGetID(v))
+    local curPanelName = string(nativeGetID(v))
     if curPanelName == panelName then
       return true
     end
@@ -1520,13 +1521,13 @@ panorama.hasPanel = function(panelName)
 end
 panorama.getPanel = function(panelName, fallback)
   local cachedPanel = panorama.panelIDs[panelName]
-  if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and ffi.string(nativeGetID(cachedPanel)) == panelName then
+  if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and string(nativeGetID(cachedPanel)) == panelName then
     return cachedPanel
   end
   panorama.panelIDs = { }
   local pPanel = nullptr
   for i, v in ipairs(panelArray) do
-    local curPanelName = ffi.string(nativeGetID(v))
+    local curPanelName = string(nativeGetID(v))
     if curPanelName ~= '' then
       panorama.panelIDs[curPanelName] = v
       if curPanelName == panelName then
@@ -1587,6 +1588,7 @@ end
 panorama.GetPanel = panorama.getPanel
 panorama.RunScript = panorama.runScript
 panorama.panelArray = panelArray
+panorama.isolate = pIsolate
 panorama.info = _INFO
 panorama.flush = shutdown
 setmetatable(panorama, {

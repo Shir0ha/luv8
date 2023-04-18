@@ -15,7 +15,7 @@ setmetatable(_INFO,{
 })
 
 export ffi = require('ffi') -- finally ev0lve supports this
-import cast, typeof, new from ffi
+import cast, typeof, new, string, metatype from ffi
 
 --#pragma region compatibility_layer
 find_pattern = () -> error('Unsupported provider (e.g. neverlose)')
@@ -91,7 +91,7 @@ proc_bind = (() ->
     fnGetProcAddress = () -> error('Failed to load GetProcAddress')
     fnGetModuleHandle = () -> error('Failed to load GetModuleHandleA')
     if ffiCEnabled -- I did this mainly because memesense pattern scan is fucked up
-        ffi.cdef[[
+        cdef[[
             uint32_t GetProcAddress(uint32_t, const char*);
             uint32_t GetModuleHandleA(const char*);
         ]]
@@ -106,11 +106,11 @@ proc_bind = (() ->
         proxyAddr = find_pattern('engine.dll', '51 C3') -- PUSH ECX; RET
         fnGetProcAddressAddr = cast('void*', fnGetProcAddress)
         fnGetProcAddress = (moduleHandle, functionName) ->
-            fnGetProcAddressProxy = ffi.cast('uint32_t(__thiscall*)(void*, uint32_t, const char*)', proxyAddr)
+            fnGetProcAddressProxy = cast('uint32_t(__thiscall*)(void*, uint32_t, const char*)', proxyAddr)
             return fnGetProcAddressProxy(fnGetProcAddressAddr, moduleHandle, functionName)
         fnGetModuleHandleAddr = cast('void*', fnGetModuleHandle)
         fnGetModuleHandle = (moduleName) ->
-            fnGetModuleHandleProxy = ffi.cast('uint32_t(__thiscall*)(void*, const char*)', proxyAddr)
+            fnGetModuleHandleProxy = cast('uint32_t(__thiscall*)(void*, const char*)', proxyAddr)
             return fnGetModuleHandleProxy(fnGetModuleHandleAddr, moduleName)
     (module_name, function_name, typedef) ->
         cast(typeof(typedef), fnGetProcAddress(fnGetModuleHandle(module_name), function_name))
@@ -200,13 +200,15 @@ getJavaScriptContextParent = (panel) ->
 --#pragma region native_v8_functions
 v8_dll = DllImport('v8.dll')
 
+pIsolate = nativeGetIsolate!
+
 persistentTbl = {}
 
 class Local
     new: (val) => @this = cast('void**', val)
     getInternal: => @this
     globalize: =>
-        pPersistent = v8_dll\get('?GlobalizeReference@V8@v8@@CAPAPAVObject@internal@2@PAVIsolate@42@PAPAV342@@Z', 'void*(__cdecl*)(void*,void*)')(nativeGetIsolate!, @this[0])
+        pPersistent = v8_dll\get('?GlobalizeReference@V8@v8@@CAPAPAVObject@internal@2@PAVIsolate@42@PAPAV342@@Z', 'void*(__cdecl*)(void*,void*)')(pIsolate, @this[0])
         persistent = Persistent(pPersistent)
         persistentTbl[persistent\getIdentityHash!] = pPersistent
         persistent
@@ -302,20 +304,20 @@ class Persistent
 class Value
     new: (val) => @this = cast('void*', val)
     fromLua: (val) =>
-        if val==nil then return Null(nativeGetIsolate!)\getValue!
+        if val==nil then return Null(pIsolate)\getValue!
         valType = type(val)
         switch valType
             when 'boolean'
-                return Boolean(nativeGetIsolate!,val)\getValue!
+                return Boolean(pIsolate,val)\getValue!
             when 'number'
-                return Number(nativeGetIsolate!,val)\getInstance!
+                return Number(pIsolate,val)\getInstance!
             when 'string'
-                return String(nativeGetIsolate!,val)\getInstance!
+                return String(pIsolate,val)\getInstance!
             when 'table'
                 if is_array(val) then
-                    return Array\fromLua(nativeGetIsolate!,val)
+                    return Array\fromLua(pIsolate,val)
                 else
-                    return Object\fromLua(nativeGetIsolate!,val)
+                    return Object\fromLua(pIsolate,val)
             when 'function'
                 return FunctionTemplate(v8js_function(val))\getFunction!!
             else
@@ -336,7 +338,7 @@ class Value
     stringValue: =>
         strBuf = new('char*[2]')
         val = v8_dll\get('??0Utf8Value@String@v8@@QAE@V?$Local@VValue@v8@@@2@@Z', 'struct{char* str; int length;}*(__thiscall*)(void*,void*)')(strBuf, @this)
-        s = ffi.string(val.str, val.length)
+        s = string(val.str, val.length)
         v8_dll\get('??1Utf8Value@String@v8@@QAE@XZ', 'void(__thiscall*)(void*)')(strBuf)
         s
     toObject: =>
@@ -397,7 +399,7 @@ class Function extends Object
         @
     __call: (...) =>
         if @parent==nil then
-            @callAsFunction(Context(Isolate(nativeGetIsolate!)\getCurrentContext!)\global!\toValueChecked!\getInternal!, v8js_args(...))
+            @callAsFunction(Context(Isolate!\getCurrentContext!)\global!\toValueChecked!\getInternal!, v8js_args(...))
         else
             @callAsFunction(@parent\getAsValue!\getInternal!, v8js_args(...))
 
@@ -408,7 +410,7 @@ class ObjectTemplate
 --to be honest this part is kinda messy, method names are confusing as fuck
 class FunctionTemplate
     new: (callback) =>
-        @this = MaybeLocal(v8_dll\get('?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PAVIsolate@2@P6AXABV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@@Z', 'void*(__cdecl*)(void*,void*,void*,void*,void*,int,int)')(intbuf,nativeGetIsolate!,cast('void(__cdecl*)(void******)',callback),new('int[1]'),new('int[1]'),0,0))\toLocalChecked!
+        @this = MaybeLocal(v8_dll\get('?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PAVIsolate@2@P6AXABV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@@Z', 'void*(__cdecl*)(void*,void*,void*,void*,void*,int,int)')(intbuf,pIsolate,cast('void(__cdecl*)(void******)',callback),new('int[1]'),new('int[1]'),0,0))\toLocalChecked!
     getFunction: () =>
         MaybeLocal(v8_dll\get('?GetFunction@FunctionTemplate@v8@@QAE?AV?$Local@VFunction@v8@@@2@XZ', 'void*(__thiscall*)(void*, void*)')(@this!\getInternal!, intbuf))\toLocalChecked!
     getInstance: => @this!
@@ -480,7 +482,7 @@ class String extends Value
     getInstance: => @this!
 
 class Isolate
-    new: (val = nativeGetIsolate!) => @this = val
+    new: (val = pIsolate) => @this = val
     enter: => v8_dll\get('?Enter@Isolate@v8@@QAEXXZ', 'void(__thiscall*)(void*)')(@this)
     exit: => v8_dll\get('?Exit@Isolate@v8@@QAEXXZ', 'void(__thiscall*)(void*)')(@this)
     getCurrentContext: => MaybeLocal(v8_dll\get('?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ', 'void**(__thiscall*)(void*,void*)')(@this, intbuf))\toValueChecked!\getInternal!
@@ -495,9 +497,9 @@ class Context
 
 class HandleScope
     new: => @this = new('char[0xC]')
-    enter: => v8_dll\get('??0HandleScope@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*,void*)')(@this, nativeGetIsolate!)
+    enter: => v8_dll\get('??0HandleScope@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*,void*)')(@this, pIsolate)
     exit: => v8_dll\get('??1HandleScope@v8@@QAE@XZ', 'void(__thiscall*)(void*)')(@this)
-    createHandle: (val) => v8_dll\get('?CreateHandle@HandleScope@v8@@KAPAPAVObject@internal@2@PAVIsolate@42@PAV342@@Z', 'void**(__cdecl*)(void*,void*)')(nativeGetIsolate!, val)
+    createHandle: (val) => v8_dll\get('?CreateHandle@HandleScope@v8@@KAPAPAVObject@internal@2@PAVIsolate@42@PAV342@@Z', 'void**(__cdecl*)(void*,void*)')(pIsolate, val)
     __call: (func, panel = panorama.GetPanel('CSGOJsRegistration')) =>
         isolate = Isolate!
         isolate\enter!
@@ -518,7 +520,7 @@ class HandleScope
 
 class TryCatch
     new: => @this = new('char[0x19]')
-    enter: => v8_dll\get('??0TryCatch@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*,void*)')(@this, nativeGetIsolate!)
+    enter: => v8_dll\get('??0TryCatch@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*,void*)')(@this, pIsolate)
     exit: => v8_dll\get('??1TryCatch@v8@@QAE@XZ', 'void(__thiscall*)(void*)')(@this)
     canContinue: => v8_dll\get('?CanContinue@TryCatch@v8@@QBE_NXZ', 'bool(__thiscall*)(void*)')(@this)
     hasTerminated: => v8_dll\get('?HasTerminated@TryCatch@v8@@QBE_NXZ', 'bool(__thiscall*)(void*)')(@this)
@@ -528,9 +530,9 @@ class Script
     compile: (panel, source, layout = '') =>
         __thiscall(cast('void**(__thiscall*)(void*,void*,const char*,const char*)', api == 'memesense' and find_pattern('panorama.dll', 'E8 ? ? ? ? 8B 4C 24 10 FF 15') - 2816 or find_pattern('panorama.dll', '55 8B EC 83 E4 F8 83 EC 64 53 8B D9')), UIEngine\getInstance!)(panel, source, layout)
     loadstring: (str, panel) =>
-        isolate = Isolate(nativeGetIsolate!)
+        isolate = Isolate!
         handleScope = HandleScope!
-        tryCatch = TryCatch()
+        tryCatch = TryCatch!
         isolate\enter!
         handleScope\enter!
         ctx = if panel then nativeGetPanelContext(getJavaScriptContextParent(panel))[0] else Context(isolate\getCurrentContext!)\global!\getInternal!
@@ -568,7 +570,7 @@ CUtlVector_Constructor_t = typeof([[
     }
 ]], PanelInfo_t, PanelInfo_t)
 
-ffi.metatype(CUtlVector_Constructor_t, {
+metatype(CUtlVector_Constructor_t, {
     __index: {
         Count: => @m_Memory.m_nAllocationCount,
         Element: (i) => cast(typeof('$&', PanelInfo_t), @m_Memory.m_pMemory[i])
@@ -593,20 +595,20 @@ panelArray = cast(panelList, cast('uintptr_t', UIEngine\getInstance!) + panelArr
 
 panorama.hasPanel = (panelName) ->
     for i, v in ipairs(panelArray) do
-        curPanelName = ffi.string(nativeGetID(v))
+        curPanelName = string(nativeGetID(v))
         if curPanelName == panelName then
             return true
     false
 
 panorama.getPanel = (panelName, fallback) ->
     cachedPanel = panorama.panelIDs[panelName]
-    if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and ffi.string(nativeGetID(cachedPanel))==panelName then
+    if cachedPanel ~= nil and nativeIsValidPanelPointer(cachedPanel) and string(nativeGetID(cachedPanel))==panelName then
         return cachedPanel
     panorama.panelIDs = {}
 
     pPanel = nullptr
     for i, v in ipairs(panelArray) do
-        curPanelName = ffi.string(nativeGetID(v))
+        curPanelName = string(nativeGetID(v))
         if curPanelName ~= '' then
             panorama.panelIDs[curPanelName] = v
             if curPanelName == panelName then
@@ -633,11 +635,13 @@ panorama.open = (panel = 'CSGOJsRegistration') ->
     fallback = 'CSGOJsRegistration'
     if panel == 'CSGOMainMenu' then fallback = 'CSGOHub'
     if panel == 'CSGOHub' then fallback = 'CSGOMainMenu'
-    HandleScope!((() -> Context(Isolate()\getCurrentContext!)\global!\toValueChecked!\toLua!), panorama.GetPanel(panel, fallback))
+    HandleScope!((() -> Context(Isolate!\getCurrentContext!)\global!\toValueChecked!\toLua!), panorama.GetPanel(panel, fallback))
+
 
 panorama.GetPanel = panorama.getPanel -- backwards compatibility
 panorama.RunScript = panorama.runScript -- backwards compatibility
 panorama.panelArray = panelArray
+panorama.isolate = pIsolate
 
 panorama.info = _INFO
 panorama.flush = shutdown
