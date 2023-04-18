@@ -34,7 +34,7 @@ switch api
     when 'primordial'
         find_pattern = memory.find_pattern
         create_interface = memory.create_interface
-        --add_shutdown_callback = (fn) -> callbacks.add(e_callbacks.SHUTDOWN, fn)
+        add_shutdown_callback = (fn) -> callbacks.add(e_callbacks.SHUTDOWN, fn)
     when 'memesense'
         find_pattern = Utils.PatternScan
         create_interface = Utils.CreateInterface
@@ -662,6 +662,6 @@ setmetatable(panorama, {
 })
 --#pragma endregion panorma_functions
 
-add_shutdown_callback(shutdown)
+--add_shutdown_callback(shutdown)
 
 panorama

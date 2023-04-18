@@ -37,6 +37,9 @@ elseif 'fa7ality' == _exp_0 then
 elseif 'primordial' == _exp_0 then
   find_pattern = memory.find_pattern
   create_interface = memory.create_interface
+  add_shutdown_callback = function(fn)
+    return callbacks.add(e_callbacks.SHUTDOWN, fn)
+  end
 elseif 'memesense' == _exp_0 then
   find_pattern = Utils.PatternScan
   create_interface = Utils.CreateInterface
@@ -924,7 +927,7 @@ do
       if self:length() > i then
         return Value(self:getValues_() - i):toLua()
       else
-        return 
+        return
       end
     end
   }
@@ -1551,6 +1554,9 @@ panorama.getPanel = function(panelName, fallback)
   end
   return pPanel
 end
+panorama.getIsolate = function()
+  return Isolate(nativeGetIsolate())
+end
 panorama.runScript = function(jsCode, panel, pathToXMLContext)
   if panel == nil then
     panel = panorama.getPanel('CSGOJsRegistration')
@@ -1592,9 +1598,9 @@ panorama.open = function(panel)
   end), panorama.GetPanel(panel, fallback))
 end
 panorama.GetPanel = panorama.getPanel
+panorama.GetIsolate = panorama.getIsolate
 panorama.RunScript = panorama.runScript
 panorama.panelArray = panelArray
-panorama.isolate = pIsolate
 panorama.info = _INFO
 panorama.flush = shutdown
 setmetatable(panorama, {
@@ -1608,5 +1614,4 @@ setmetatable(panorama, {
     return panorama.open()[key]
   end
 })
-add_shutdown_callback(shutdown)
 return panorama
