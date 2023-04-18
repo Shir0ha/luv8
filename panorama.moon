@@ -21,7 +21,7 @@ import cast, typeof, new, string, metatype from ffi
 find_pattern = () -> error('Unsupported provider (e.g. neverlose)')
 create_interface = () -> error('Unsupported provider (e.g. neverlose)')
 add_shutdown_callback = () -> print('WARNING: Cleanup before shutdown disabled')
-api = (_G == nil) and (info.fatality == nil and 'ev0lve' or 'fa7ality') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and 'primordial' or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
+api = (_G == nil) and (info.fatality == nil and 'ev0lve' or 'fa7ality') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
 switch api
     when 'ev0lve'
         find_pattern = utils.find_pattern
@@ -58,6 +58,11 @@ switch api
             return client.find_signature(moduleName, gsPattern)
         create_interface = client.create_interface
         add_shutdown_callback = (fn) -> client.set_event_callback('shutdown', fn)
+    when 'nixware'
+        find_pattern = client.find_pattern
+        create_interface = se.create_interface
+        add_shutdown_callback = (fn) -> client.register_callback("unload", fn)
+
 safe_mode = xpcall and true or false
 
 ffiCEnabled = ffi.C and api ~= 'gamesense'
