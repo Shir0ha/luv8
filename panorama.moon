@@ -626,6 +626,8 @@ panorama.getPanel = (panelName, fallback) ->
             error('Failed to get target panel %s (EAX == 0)'\format(tostring(panelName)))
     pPanel
 
+panorama.getIsolate = () -> Isolate(nativeGetIsolate!)
+
 panorama.runScript = (jsCode, panel = panorama.getPanel('CSGOJsRegistration'), pathToXMLContext = 'panorama/layout/base.xml') ->
     if not nativeIsValidPanelPointer(panel) then error('Invalid panel pointer (EAX == 0)')
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
@@ -644,9 +646,9 @@ panorama.open = (panel = 'CSGOJsRegistration') ->
 
 
 panorama.GetPanel = panorama.getPanel -- backwards compatibility
+panorama.GetIsolate = panorama.getIsolate
 panorama.RunScript = panorama.runScript -- backwards compatibility
 panorama.panelArray = panelArray
-panorama.isolate = pIsolate
 
 panorama.info = _INFO
 panorama.flush = shutdown
