@@ -53,8 +53,8 @@ switch api
     when 'gamesense'
         find_pattern = (moduleName, pattern) ->
             gsPattern = ''
-            for token in string.gmatch(pattern, '%S+') do
-                gsPattern = gsPattern .. (token == '?' and '\xCC' or string.char(tonumber(token, 16)))
+            for token in pattern\gmatch('%S+') do
+                gsPattern = gsPattern .. (token == '?' and '\xCC' or _G.string.char(tonumber(token, 16)))
             return client.find_signature(moduleName, gsPattern)
         create_interface = client.create_interface
         add_shutdown_callback = (fn) -> client.set_event_callback('shutdown', fn)
