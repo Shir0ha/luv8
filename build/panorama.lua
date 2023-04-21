@@ -64,8 +64,8 @@ elseif 'legion' == _exp_0 then
 elseif 'gamesense' == _exp_0 then
   find_pattern = function(moduleName, pattern)
     local gsPattern = ''
-    for token in string.gmatch(pattern, '%S+') do
-      gsPattern = gsPattern .. (token == '?' and '\xCC' or string.char(tonumber(token, 16)))
+    for token in pattern:gmatch('%S+') do
+      gsPattern = gsPattern .. (token == '?' and '\xCC' or _G.string.char(tonumber(token, 16)))
     end
     return client.find_signature(moduleName, gsPattern)
   end
