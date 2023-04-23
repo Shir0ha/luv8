@@ -29,8 +29,10 @@ yes.
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### nixware
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
+### neverlose
+- use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### other cheats  
-- luv8 currently only provides compatibility with ev0lve, primordial, pandora, legendware, memesense, fatality, gamesense, and nixware, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
+- luv8 currently only provides compatibility with ev0lve, primordial, pandora, legendware, memesense, fatality, gamesense, nixware, and neverlose, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
 
 ## API
 ### supports both gamesense & neverlose style api
@@ -94,6 +96,7 @@ panorama.GetIsolate(): Isolate
   - added gamesense support
 - [@lztqq](https://github.com/lztqq)
   - added nixware support
+  - added neverlose support
 - ev0lve
   - the development of this library was 99% done on [ev0lve.xyz](https://ev0lve.xyz/)
 - primordial
