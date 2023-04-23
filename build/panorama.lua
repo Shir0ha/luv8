@@ -16,15 +16,15 @@ do
   cast, typeof, new, string, metatype = _obj_0.cast, _obj_0.typeof, _obj_0.new, _obj_0.string, _obj_0.metatype
 end
 find_pattern = function()
-  return error('Unsupported provider (e.g. neverlose)')
+  return error('Unsupported provider')
 end
 create_interface = function()
-  return error('Unsupported provider (e.g. neverlose)')
+  return error('Unsupported provider')
 end
 add_shutdown_callback = function()
   return print('WARNING: Cleanup before shutdown disabled')
 end
-api = (_G == nil) and (info.fatality == nil and 'ev0lve' or 'fa7ality') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
+api = (_G == nil) and (info.fatality == nil and 'ev0lve' or 'fa7ality') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and (network == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'neverlose') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
 local _exp_0 = api
 if 'ev0lve' == _exp_0 then
   find_pattern = utils.find_pattern
@@ -79,6 +79,10 @@ elseif 'nixware' == _exp_0 then
   add_shutdown_callback = function(fn)
     return client.register_callback("unload", fn)
   end
+elseif 'neverlose' == _exp_0 then
+  find_pattern = utils.opcode_scan
+  create_interface = utils.create_interface
+  add_shutdown_callback = function() end
 end
 safe_mode = xpcall and true or false
 ffiCEnabled = ffi.C and api ~= 'gamesense'
@@ -137,7 +141,7 @@ proc_bind = (function()
     return error('Failed to load GetModuleHandleA')
   end
   if ffiCEnabled then
-    cdef([[            uint32_t GetProcAddress(uint32_t, const char*);
+    ffi.cdef([[            uint32_t GetProcAddress(uint32_t, const char*);
             uint32_t GetModuleHandleA(const char*);
         ]])
     fnGetProcAddress = ffi.C.GetProcAddress
@@ -927,7 +931,7 @@ do
       if self:length() > i then
         return Value(self:getValues_() - i):toLua()
       else
-        return
+        return 
       end
     end
   }

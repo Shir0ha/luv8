@@ -18,10 +18,10 @@ export ffi = require('ffi') -- finally ev0lve supports this
 import cast, typeof, new, string, metatype from ffi
 
 --#pragma region compatibility_layer
-find_pattern = () -> error('Unsupported provider (e.g. neverlose)')
-create_interface = () -> error('Unsupported provider (e.g. neverlose)')
+find_pattern = () -> error('Unsupported provider')
+create_interface = () -> error('Unsupported provider')
 add_shutdown_callback = () -> print('WARNING: Cleanup before shutdown disabled')
-api = (_G == nil) and (info.fatality == nil and 'ev0lve' or 'fa7ality') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
+api = (_G == nil) and (info.fatality == nil and 'ev0lve' or 'fa7ality') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and (network == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'neverlose') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
 switch api
     when 'ev0lve'
         find_pattern = utils.find_pattern
@@ -62,6 +62,10 @@ switch api
         find_pattern = client.find_pattern
         create_interface = se.create_interface
         add_shutdown_callback = (fn) -> client.register_callback("unload", fn)
+    when 'neverlose'
+        find_pattern = utils.opcode_scan
+        create_interface = utils.create_interface
+        add_shutdown_callback = () -> -- not needed
 
 safe_mode = xpcall and true or false
 
@@ -96,7 +100,7 @@ proc_bind = (() ->
     fnGetProcAddress = () -> error('Failed to load GetProcAddress')
     fnGetModuleHandle = () -> error('Failed to load GetModuleHandleA')
     if ffiCEnabled -- I did this mainly because memesense pattern scan is fucked up
-        cdef[[
+        ffi.cdef[[
             uint32_t GetProcAddress(uint32_t, const char*);
             uint32_t GetModuleHandleA(const char*);
         ]]
