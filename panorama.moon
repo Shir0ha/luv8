@@ -7,7 +7,7 @@
 -------------------------------------------------------
 local *
 
-_INFO = {_VERSION: 1.6}
+_INFO = {_VERSION: 1.7}
 
 setmetatable(_INFO,{
     __call: => self._VERSION,
@@ -83,9 +83,9 @@ if 1+2==3 then
         shutdown!
         _error(msg)
 exception = (msg) ->
-    print('Caught exception in V8 HandleScope: ', tostring(msg))
+    print('Caught lua exception in V8 HandleScope: ', tostring(msg))
 exceptionCb = (msg) ->
-    print('Caught exception in V8 Function Callback: ', tostring(msg))
+    print('Caught lua exception in V8 Function Callback: ', tostring(msg))
 __thiscall = (func, this) -> (...) -> func(this, ...)
 table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->
@@ -194,6 +194,7 @@ nativeCompileRunScript = UIEngine\get(113, 'void****(__thiscall*)(void*,void*,ch
 nativeRunScript = __thiscall(cast(typeof('void*(__thiscall*)(void*,void*,void*,void*,int,bool)'), follow_call(find_pattern('panorama.dll', 'E8 ? ? ? ? 8B 4C 24 10 FF 15'))), UIEngine\getInstance!)
 nativeGetV8GlobalContext = UIEngine\get(123, 'void*(__thiscall*)(void*)')
 nativeGetIsolate = UIEngine\get(129, 'void*(__thiscall*)(void*)')
+nativeHandleException = UIEngine\get(121, 'void(__thiscall*)(void*, void*, void*)')
 nativeGetParent = vtable_thunk(25, 'void*(__thiscall*)(void*)')
 nativeGetID = vtable_thunk(9, 'const char*(__thiscall*)(void*)')
 nativeFindChildTraverse = vtable_thunk(40, 'void*(__thiscall*)(void*,const char*)')
@@ -213,9 +214,14 @@ pIsolate = nativeGetIsolate!
 
 persistentTbl = {}
 
+class Message
+    new: (val) => @this = cast('void*', val)
+
 class Local
     new: (val) => @this = cast('void**', val)
     getInternal: => @this
+    isValid: => @this[0] ~= nullptr
+    getMessage: => Message(@this[0])
     globalize: =>
         pPersistent = v8_dll\get('?GlobalizeReference@V8@v8@@CAPAPAVObject@internal@2@PAVIsolate@42@PAPAV342@@Z', 'void*(__cdecl*)(void*,void*)')(pIsolate, @this[0])
         persistent = Persistent(pPersistent)
@@ -277,13 +283,25 @@ PersistentProxy_mt = {
         this = rawget(@,'this')
         args = { ... }
         if this.baseType ~= 'Function' then error('Attempted to call a non-function value: ' .. this.baseType)
-        HandleScope!(() ->
+        terminateExecution = false
+        ret = HandleScope!(() ->
+            tryCatch = TryCatch!
+            tryCatch\enter!
             rawReturn = this\getAsValue!\toFunction!\setParent(rawget(@,'parent'))(unpack(args))\toLocalChecked!
+            if tryCatch\hasCaught! then --lol exception handling
+                nativeHandleException(tryCatch\getInternal!, panorama.getPanel("CSGOJsRegistration")) -- we don't keep track of panels..... so just throw everything in CSGOJsRegistration
+                if safe_mode then
+                    terminateExecution = true
+            tryCatch\exit!
             if rawReturn == nil then
                 nil
             else
                 rawReturn!\toLua!
         )
+        if terminateExecution then
+            error("\n\nFailed to call the given javascript function, please check the error message above ^ \n\n(definitely not because I was too lazy to implement my own exception handler)\n")
+        ret
+
     __tostring: =>
         this = rawget(@,'this')
         HandleScope!(() -> this\getAsValue!\stringValue!)
@@ -528,30 +546,43 @@ class HandleScope
         val
 
 class TryCatch
-    new: => @this = new('char[0x19]')
-    enter: => v8_dll\get('??0TryCatch@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*,void*)')(@this, pIsolate)
+    new: => @this = new('char[0x19]') -- I pulled this out of my ass
+    enter: => v8_dll\get('??0TryCatch@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*, void*)')(@this, pIsolate)
     exit: => v8_dll\get('??1TryCatch@v8@@QAE@XZ', 'void(__thiscall*)(void*)')(@this)
     canContinue: => v8_dll\get('?CanContinue@TryCatch@v8@@QBE_NXZ', 'bool(__thiscall*)(void*)')(@this)
     hasTerminated: => v8_dll\get('?HasTerminated@TryCatch@v8@@QBE_NXZ', 'bool(__thiscall*)(void*)')(@this)
     hasCaught: => v8_dll\get('?HasCaught@TryCatch@v8@@QBE_NXZ', 'bool(__thiscall*)(void*)')(@this)
+    message: => Local(v8_dll\get('?Message@TryCatch@v8@@QBE?AV?$Local@VMessage@v8@@@2@XZ', 'void*(__thiscall*)(void*, void*)')(@this, intbuf))
+    getInternal: => @this
 
 class Script
     compile: (panel, source, layout = '') =>
         __thiscall(cast('void**(__thiscall*)(void*,void*,const char*,const char*)', api == 'memesense' and find_pattern('panorama.dll', 'E8 ? ? ? ? 8B 4C 24 10 FF 15') - 2816 or find_pattern('panorama.dll', '55 8B EC 83 E4 F8 83 EC 64 53 8B D9')), UIEngine\getInstance!)(panel, source, layout)
     loadstring: (str, panel) =>
+        -- this function does all the exception handling by itself, and returns a persistent
+        compiled = MaybeLocal(@compile(panel, str))\toLocalChecked! -- CUIEngine::CompileScript
+        if compiled == nullptr then
+            if safe_mode then -- if can pcall, you should pcall this function to avoid script termination
+                error("\nFailed to compile the given javascript string, please check the error message above ^\n")
+            else
+                print("\nFailed to compile the given javascript string, please check the error message above ^\n")
+                return () -> print('WARNING: Attempted to call nullptr (script compilation failed)') -- your software doesn't support pcall wtf
         isolate = Isolate!
         handleScope = HandleScope!
-        tryCatch = TryCatch!
         isolate\enter!
         handleScope\enter!
         ctx = if panel then nativeGetPanelContext(getJavaScriptContextParent(panel))[0] else Context(isolate\getCurrentContext!)\global!\getInternal!
         ctx = Context(if ctx ~= nullptr then handleScope\createHandle(ctx[0]) else 0)
         ctx\enter!
-        tryCatch\enter!
-        compiled = MaybeLocal(@compile(panel, str))\toLocalChecked!
-        tryCatch\exit!
-        ret = MaybeLocal(nativeRunScript(intbuf, panel, compiled!\getInternal!, 0, false))\toValueChecked!\toLua! unless compiled==nil -- we do not have to trycatch this one because it already does it itself!
-        ret = (() -> print('WARNING: Attempted to call nullptr')) unless ((not safe_mode) or ret) -- lol preventing error, this way we can exit handlescope peacefully
+        ret = MaybeLocal(nativeRunScript(intbuf, panel, compiled!\getInternal!, 0, false))\toValueChecked! -- nativeRunScript does not create it's own handlescope/context, we need to enter the context manually
+        if ret == nullptr then -- this doesn't happen very often if at all...
+            if safe_mode then -- if can pcall, you should pcall this function to avoid script termination
+                error("\nFailed to evaluate the given javascript string, please check the error message above ^\n")
+            else
+                print("\nFailed to evaluate the given javascript string, please check the error message above ^\n")
+                ret = () -> print('WARNING: Attempted to call nullptr (script execution failed)') -- your software doesn't support pcall wtf
+        else
+            ret = ret\toLua!
         ctx\exit!
         handleScope\exit!
         isolate\exit!

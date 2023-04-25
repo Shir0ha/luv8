@@ -1,6 +1,6 @@
-local _INFO, ffi, cast, typeof, new, string, metatype, find_pattern, create_interface, add_shutdown_callback, api, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, pIsolate, persistentTbl, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
+local _INFO, ffi, cast, typeof, new, string, metatype, find_pattern, create_interface, add_shutdown_callback, api, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeHandleException, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, pIsolate, persistentTbl, Message, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
-  _VERSION = 1.6
+  _VERSION = 1.7
 }
 setmetatable(_INFO, {
   __call = function(self)
@@ -100,10 +100,10 @@ if 1 + 2 == 3 then
   end
 end
 exception = function(msg)
-  return print('Caught exception in V8 HandleScope: ', tostring(msg))
+  return print('Caught lua exception in V8 HandleScope: ', tostring(msg))
 end
 exceptionCb = function(msg)
-  return print('Caught exception in V8 Function Callback: ', tostring(msg))
+  return print('Caught lua exception in V8 Function Callback: ', tostring(msg))
 end
 __thiscall = function(func, this)
   return function(...)
@@ -295,6 +295,7 @@ nativeCompileRunScript = UIEngine:get(113, 'void****(__thiscall*)(void*,void*,ch
 nativeRunScript = __thiscall(cast(typeof('void*(__thiscall*)(void*,void*,void*,void*,int,bool)'), follow_call(find_pattern('panorama.dll', 'E8 ? ? ? ? 8B 4C 24 10 FF 15'))), UIEngine:getInstance())
 nativeGetV8GlobalContext = UIEngine:get(123, 'void*(__thiscall*)(void*)')
 nativeGetIsolate = UIEngine:get(129, 'void*(__thiscall*)(void*)')
+nativeHandleException = UIEngine:get(121, 'void(__thiscall*)(void*, void*, void*)')
 nativeGetParent = vtable_thunk(25, 'void*(__thiscall*)(void*)')
 nativeGetID = vtable_thunk(9, 'const char*(__thiscall*)(void*)')
 nativeFindChildTraverse = vtable_thunk(40, 'void*(__thiscall*)(void*,const char*)')
@@ -313,9 +314,36 @@ pIsolate = nativeGetIsolate()
 persistentTbl = { }
 do
   local _class_0
+  local _base_0 = { }
+  _base_0.__index = _base_0
+  _class_0 = setmetatable({
+    __init = function(self, val)
+      self.this = cast('void*', val)
+    end,
+    __base = _base_0,
+    __name = "Message"
+  }, {
+    __index = _base_0,
+    __call = function(cls, ...)
+      local _self_0 = setmetatable({}, _base_0)
+      cls.__init(_self_0, ...)
+      return _self_0
+    end
+  })
+  _base_0.__class = _class_0
+  Message = _class_0
+end
+do
+  local _class_0
   local _base_0 = {
     getInternal = function(self)
       return self.this
+    end,
+    isValid = function(self)
+      return self.this[0] ~= nullptr
+    end,
+    getMessage = function(self)
+      return Message(self.this[0])
     end,
     globalize = function(self)
       local pPersistent = v8_dll:get('?GlobalizeReference@V8@v8@@CAPAPAVObject@internal@2@PAVIsolate@42@PAPAV342@@Z', 'void*(__cdecl*)(void*,void*)')(pIsolate, self.this[0])
@@ -459,14 +487,28 @@ PersistentProxy_mt = {
     if this.baseType ~= 'Function' then
       error('Attempted to call a non-function value: ' .. this.baseType)
     end
-    return HandleScope()(function()
+    local terminateExecution = false
+    local ret = HandleScope()(function()
+      local tryCatch = TryCatch()
+      tryCatch:enter()
       local rawReturn = this:getAsValue():toFunction():setParent(rawget(self, 'parent'))(unpack(args)):toLocalChecked()
+      if tryCatch:hasCaught() then
+        nativeHandleException(tryCatch:getInternal(), panorama.getPanel("CSGOJsRegistration"))
+        if safe_mode then
+          terminateExecution = true
+        end
+      end
+      tryCatch:exit()
       if rawReturn == nil then
         return nil
       else
         return rawReturn():toLua()
       end
     end)
+    if terminateExecution then
+      error("\n\nFailed to call the given javascript function, please check the error message above ^ \n\n(definitely not because I was too lazy to implement my own exception handler)\n")
+    end
+    return ret
   end,
   __tostring = function(self)
     local this = rawget(self, 'this')
@@ -931,7 +973,7 @@ do
       if self:length() > i then
         return Value(self:getValues_() - i):toLua()
       else
-        return 
+        return
       end
     end
   }
@@ -1383,7 +1425,7 @@ do
   local _class_0
   local _base_0 = {
     enter = function(self)
-      return v8_dll:get('??0TryCatch@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*,void*)')(self.this, pIsolate)
+      return v8_dll:get('??0TryCatch@v8@@QAE@PAVIsolate@1@@Z', 'void(__thiscall*)(void*, void*)')(self.this, pIsolate)
     end,
     exit = function(self)
       return v8_dll:get('??1TryCatch@v8@@QAE@XZ', 'void(__thiscall*)(void*)')(self.this)
@@ -1396,6 +1438,12 @@ do
     end,
     hasCaught = function(self)
       return v8_dll:get('?HasCaught@TryCatch@v8@@QBE_NXZ', 'bool(__thiscall*)(void*)')(self.this)
+    end,
+    message = function(self)
+      return Local(v8_dll:get('?Message@TryCatch@v8@@QBE?AV?$Local@VMessage@v8@@@2@XZ', 'void*(__thiscall*)(void*, void*)')(self.this, intbuf))
+    end,
+    getInternal = function(self)
+      return self.this
     end
   }
   _base_0.__index = _base_0
@@ -1426,9 +1474,19 @@ do
       return __thiscall(cast('void**(__thiscall*)(void*,void*,const char*,const char*)', api == 'memesense' and find_pattern('panorama.dll', 'E8 ? ? ? ? 8B 4C 24 10 FF 15') - 2816 or find_pattern('panorama.dll', '55 8B EC 83 E4 F8 83 EC 64 53 8B D9')), UIEngine:getInstance())(panel, source, layout)
     end,
     loadstring = function(self, str, panel)
+      local compiled = MaybeLocal(self:compile(panel, str)):toLocalChecked()
+      if compiled == nullptr then
+        if safe_mode then
+          error("\nFailed to compile the given javascript string, please check the error message above ^\n")
+        else
+          print("\nFailed to compile the given javascript string, please check the error message above ^\n")
+          return function()
+            return print('WARNING: Attempted to call nullptr (script compilation failed)')
+          end
+        end
+      end
       local isolate = Isolate()
       local handleScope = HandleScope()
-      local tryCatch = TryCatch()
       isolate:enter()
       handleScope:enter()
       local ctx
@@ -1445,17 +1503,18 @@ do
         end
       end)())
       ctx:enter()
-      tryCatch:enter()
-      local compiled = MaybeLocal(self:compile(panel, str)):toLocalChecked()
-      tryCatch:exit()
-      local ret
-      if not (compiled == nil) then
-        ret = MaybeLocal(nativeRunScript(intbuf, panel, compiled():getInternal(), 0, false)):toValueChecked():toLua()
-      end
-      if not (((not safe_mode) or ret)) then
-        ret = (function()
-          return print('WARNING: Attempted to call nullptr')
-        end)
+      local ret = MaybeLocal(nativeRunScript(intbuf, panel, compiled():getInternal(), 0, false)):toValueChecked()
+      if ret == nullptr then
+        if safe_mode then
+          error("\nFailed to evaluate the given javascript string, please check the error message above ^\n")
+        else
+          print("\nFailed to evaluate the given javascript string, please check the error message above ^\n")
+          ret = function()
+            return print('WARNING: Attempted to call nullptr (script execution failed)')
+          end
+        end
+      else
+        ret = ret:toLua()
       end
       ctx:exit()
       handleScope:exit()
