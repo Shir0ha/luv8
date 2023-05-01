@@ -1,4 +1,4 @@
-local _INFO, ffi, cast, typeof, new, string, metatype, find_pattern, create_interface, add_shutdown_callback, api, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeHandleException, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, pIsolate, persistentTbl, Message, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
+local _INFO, ffi, cast, typeof, new, string, metatype, find_pattern, create_interface, add_shutdown_callback, api, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeGetLastDispatchedEventTargetPanel, nativeCompileRunScript, nativeRunScript, nativeGetV8GlobalContext, nativeGetIsolate, nativeHandleException, nativeGetParent, nativeGetID, nativeFindChildTraverse, nativeGetJavaScriptContextParent, nativeGetPanelContext, jsContexts, getJavaScriptContextParent, v8_dll, pIsolate, persistentTbl, Message, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, ObjectTemplate, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelList, panelArrayOffset, panelArray
 _INFO = {
   _VERSION = 1.7
 }
@@ -24,7 +24,7 @@ end
 add_shutdown_callback = function()
   return print('WARNING: Cleanup before shutdown disabled')
 end
-api = (_G == nil) and (info.fatality == nil and 'ev0lve' or 'fa7ality') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and (network == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'neverlose') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
+api = (_G == nil) and (quick_maths == nil and (info.fatality == nil and 'ev0lve' or 'fa7ality') or 'rifk7') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and (network == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'neverlose') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
 local _exp_0 = api
 if 'ev0lve' == _exp_0 then
   find_pattern = utils.find_pattern
@@ -83,17 +83,28 @@ elseif 'neverlose' == _exp_0 then
   find_pattern = utils.opcode_scan
   create_interface = utils.create_interface
   add_shutdown_callback = function() end
+elseif 'rifk7' == _exp_0 then
+  find_pattern = function(module_name, pattern)
+    local stupid = cast("uint32_t*", engine.signature(module_name, pattern))
+    assert(tonumber(stupid) ~= 0)
+    return stupid[0]
+  end
+  create_interface = general.create_interface
+  add_shutdown_callback = function() end
+  print = function(text)
+    return general.log_to_console_colored("[lua] " .. tostring(text), 255, 141, 161, 255)
+  end
 end
-safe_mode = xpcall and true or false
+safe_mode = (xpcall and pcall) and true or false
 ffiCEnabled = ffi.C and api ~= 'gamesense'
-print(('\nluv8 panorama library %s;\napi: %s; safe_mode: %s; ffi.C: %s'):format(_INFO._VERSION, api, tostring(safe_mode), tostring(ffiCEnabled)))
+print(('\nluv8 panorama library %s;\nhttps://github.com/Shir0ha/luv8\napi: %s; safe_mode: %s; ffi.C: %s'):format(_INFO._VERSION, api, tostring(safe_mode), tostring(ffiCEnabled)))
 shutdown = function()
   for _, v in pairs(persistentTbl) do
     Persistent(v):disposeGlobal()
   end
 end
 _error = error
-if 1 + 2 == 3 then
+if error then
   error = function(msg)
     shutdown()
     return _error(msg)
@@ -104,6 +115,25 @@ exception = function(msg)
 end
 exceptionCb = function(msg)
   return print('Caught lua exception in V8 Function Callback: ', tostring(msg))
+end
+rawgetImpl = function(tbl, key)
+  local mtb = getmetatable(tbl)
+  setmetatable(tbl, nil)
+  local res = tbl[key]
+  setmetatable(tbl, mtb)
+  return res
+end
+rawsetImpl = function(tbl, key, value)
+  local mtb = getmetatable(tbl)
+  setmetatable(tbl, nil)
+  tbl[key] = value
+  return setmetatable(tbl, mtb)
+end
+if not rawget then
+  rawget = rawgetImpl
+end
+if not rawset then
+  rawset = rawsetImpl
 end
 __thiscall = function(func, this)
   return function(...)
@@ -288,7 +318,7 @@ do
   _base_0.__class = _class_0
   DllImport = _class_0
 end
-UIEngine = vtable(vtable_bind('panorama.dll', 'PanoramaUIEngine001', 11, 'void*(__thiscall*)(void*)')())
+UIEngine = vtable(vtable_bind('panorama.dll', api == 'rifk7' and 'PanoramaUIEngine' or 'PanoramaUIEngine001', 11, 'void*(__thiscall*)(void*)')())
 nativeIsValidPanelPointer = UIEngine:get(36, 'bool(__thiscall*)(void*,void const*)')
 nativeGetLastDispatchedEventTargetPanel = UIEngine:get(56, 'void*(__thiscall*)(void*)')
 nativeCompileRunScript = UIEngine:get(113, 'void****(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)')

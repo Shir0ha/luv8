@@ -21,7 +21,7 @@ import cast, typeof, new, string, metatype from ffi
 find_pattern = () -> error('Unsupported provider')
 create_interface = () -> error('Unsupported provider')
 add_shutdown_callback = () -> print('WARNING: Cleanup before shutdown disabled')
-api = (_G == nil) and (info.fatality == nil and 'ev0lve' or 'fa7ality') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and (network == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'neverlose') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
+api = (_G == nil) and (quick_maths == nil and (info.fatality == nil and 'ev0lve' or 'fa7ality') or 'rifk7') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and (network == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'neverlose') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
 switch api
     when 'ev0lve'
         find_pattern = utils.find_pattern
@@ -66,11 +66,22 @@ switch api
         find_pattern = utils.opcode_scan
         create_interface = utils.create_interface
         add_shutdown_callback = () -> -- not needed
+    when 'rifk7'
+        find_pattern = (module_name, pattern) ->
+            stupid = cast("uint32_t*",engine.signature(module_name, pattern))
+            assert(tonumber(stupid) ~= 0)
+            stupid[0]
+        create_interface = general.create_interface
+        add_shutdown_callback = () -> -- not needed
+        export print = (text) ->  -- :troll:
+            general.log_to_console_colored("[lua] "..tostring(text),255,141,161,255)
+            --general.log(text)
 
-safe_mode = xpcall and true or false
+
+safe_mode = (xpcall and pcall) and true or false
 
 ffiCEnabled = ffi.C and api ~= 'gamesense'
-print(('\nluv8 panorama library %s;\napi: %s; safe_mode: %s; ffi.C: %s')\format(_INFO._VERSION, api, tostring(safe_mode), tostring(ffiCEnabled)))
+print(('\nluv8 panorama library %s;\nhttps://github.com/Shir0ha/luv8\napi: %s; safe_mode: %s; ffi.C: %s')\format(_INFO._VERSION, api, tostring(safe_mode), tostring(ffiCEnabled)))
 --#pragma endregion compatibility_layer
 
 --#pragma region helper_functions
@@ -78,7 +89,7 @@ export shutdown = () ->
     for _,v in pairs(persistentTbl) do
         Persistent(v)\disposeGlobal!
 _error = error
-if 1+2==3 then
+if error then
     export error = (msg) ->
         shutdown!
         _error(msg)
@@ -86,6 +97,19 @@ exception = (msg) ->
     print('Caught lua exception in V8 HandleScope: ', tostring(msg))
 exceptionCb = (msg) ->
     print('Caught lua exception in V8 Function Callback: ', tostring(msg))
+rawgetImpl = (tbl, key) ->
+    mtb = getmetatable(tbl)
+    setmetatable(tbl, nil)
+    res = tbl[key]
+    setmetatable(tbl, mtb)
+    res
+rawsetImpl = (tbl, key, value) ->
+    mtb = getmetatable(tbl)
+    setmetatable(tbl, nil)
+    tbl[key] = value
+    setmetatable(tbl, mtb)
+if not rawget then export rawget = rawgetImpl -- in case some cheat doesn't have rawset/rawget enabled (like rifk7)
+if not rawset then export rawset = rawsetImpl
 __thiscall = (func, this) -> (...) -> func(this, ...)
 table_copy = (t) -> {k, v for k, v in pairs t}
 vtable_bind = (module, interface, index, typedef) ->
@@ -187,7 +211,7 @@ class DllImport
         @cache[method]
 
 --#pragma region native_panorama_functions
-UIEngine = vtable(vtable_bind('panorama.dll', 'PanoramaUIEngine001', 11, 'void*(__thiscall*)(void*)')!)
+UIEngine = vtable(vtable_bind('panorama.dll', api == 'rifk7' and 'PanoramaUIEngine' or'PanoramaUIEngine001', 11, 'void*(__thiscall*)(void*)')!) -- :troll:
 nativeIsValidPanelPointer = UIEngine\get(36, 'bool(__thiscall*)(void*,void const*)')
 nativeGetLastDispatchedEventTargetPanel = UIEngine\get(56, 'void*(__thiscall*)(void*)')
 nativeCompileRunScript = UIEngine\get(113, 'void****(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)')
