@@ -31,8 +31,10 @@ yes.
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### neverlose
 - use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
+### rifk7
+- use the [prebuilt version](https://github.com/Shir0ha/luv8/blob/main/build/panorama.lua) or build one yourself
 ### other cheats  
-- luv8 currently only provides compatibility with ev0lve, primordial, pandora, legendware, memesense, fatality, gamesense, nixware, and neverlose, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
+- luv8 currently only provides compatibility with ev0lve, primordial, pandora, legendware, memesense, fatality, gamesense, nixware, neverlose, and rifk7, if you wish to use it on other cheats feel free to add more to the compatibility layer and/or contribute code by pr. Contributions are welcomed.
 
 ## API
 ### supports both gamesense & neverlose style api
