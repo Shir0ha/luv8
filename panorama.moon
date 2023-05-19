@@ -693,14 +693,14 @@ panorama.runScript = (jsCode, panel = panorama.getPanel('CSGOJsRegistration'), p
 
 panorama.loadstring = (jsCode, panel = 'CSGOJsRegistration') ->
     fallback = 'CSGOJsRegistration'
-    if panel == 'CSGOMainMenu' then fallback = 'CSGOHub'
-    if panel == 'CSGOHub' then fallback = 'CSGOMainMenu'
+    if panel == 'CSGOMainMenu' then fallback = 'CSGOHud'
+    if panel == 'CSGOHud' then fallback = 'CSGOMainMenu'
     Script\loadstring('(()=>{%s})'\format(jsCode), panorama.getPanel(panel, fallback))
 
 panorama.open = (panel = 'CSGOJsRegistration') ->
     fallback = 'CSGOJsRegistration'
-    if panel == 'CSGOMainMenu' then fallback = 'CSGOHub'
-    if panel == 'CSGOHub' then fallback = 'CSGOMainMenu'
+    if panel == 'CSGOMainMenu' then fallback = 'CSGOHud'
+    if panel == 'CSGOHud' then fallback = 'CSGOMainMenu'
     HandleScope!((() -> Context(Isolate!\getCurrentContext!)\global!\toValueChecked!\toLua!), panorama.GetPanel(panel, fallback))
 
 

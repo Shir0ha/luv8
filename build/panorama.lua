@@ -1668,9 +1668,9 @@ panorama.loadstring = function(jsCode, panel)
   end
   local fallback = 'CSGOJsRegistration'
   if panel == 'CSGOMainMenu' then
-    fallback = 'CSGOHub'
+    fallback = 'CSGOHud'
   end
-  if panel == 'CSGOHub' then
+  if panel == 'CSGOHud' then
     fallback = 'CSGOMainMenu'
   end
   return Script:loadstring(('(()=>{%s})'):format(jsCode), panorama.getPanel(panel, fallback))
@@ -1681,9 +1681,9 @@ panorama.open = function(panel)
   end
   local fallback = 'CSGOJsRegistration'
   if panel == 'CSGOMainMenu' then
-    fallback = 'CSGOHub'
+    fallback = 'CSGOHud'
   end
-  if panel == 'CSGOHub' then
+  if panel == 'CSGOHud' then
     fallback = 'CSGOMainMenu'
   end
   return HandleScope()((function()
