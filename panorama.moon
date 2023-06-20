@@ -21,7 +21,46 @@ import cast, typeof, new, string, metatype from ffi
 find_pattern = () -> error('Unsupported provider')
 create_interface = () -> error('Unsupported provider')
 add_shutdown_callback = () -> print('WARNING: Cleanup before shutdown disabled')
-api = (_G == nil) and (quick_maths == nil and (info.fatality == nil and 'ev0lve' or 'fa7ality') or 'rifk7') or (file == nil and (GameEventManager == nil and (penetration == nil and (math_utils == nil and (plist == nil and (network == nil and ((renderer ~= nil and renderer.setup_texture ~= nil) and 'nixware' or 'primordial') or 'neverlose') or 'gamesense') or 'legion') or 'pandora') or 'memesense') or 'legendware')
+
+local api
+while true
+    if _G == nil
+        if quick_maths == nil
+            if info.fatality == nil
+                api = 'ev0lve'
+                break
+            api = 'fa7ality'
+            break
+        api = 'rifk7'
+        break
+
+    if MatSystem ~= nil then
+        api = 'spirthack'
+        break
+    if file ~= nil then
+        api = 'legendware'
+        break
+    if GameEventManager ~= nil then
+        api = 'memesense'
+        break
+    if penetration ~= nil then
+        api = 'pandora'
+        break
+    if math_utils ~= nil then
+        api = 'legion'
+        break
+    if plist ~= nil then
+        api = 'gamesense'
+        break
+    if network ~= nil then
+        api = 'neverlose'
+        break
+    if renderer ~= nil and renderer.setup_texture ~= nil then
+        api = 'nixware'
+        break
+    api = 'primordial'
+    break
+
 switch api
     when 'ev0lve'
         find_pattern = utils.find_pattern
@@ -71,12 +110,15 @@ switch api
             stupid = cast("uint32_t*",engine.signature(module_name, pattern))
             assert(tonumber(stupid) ~= 0)
             stupid[0]
-        create_interface = general.create_interface
-        add_shutdown_callback = () -> -- not needed
+        create_interface = (module_name, interface_name) ->
+            interface_name = string.gsub(interface_name, "%d+", "")
+            general.create_interface(module_name, interface_name)
         export print = (text) ->  -- :troll:
             general.log_to_console_colored("[lua] "..tostring(text),255,141,161,255)
             --general.log(text)
-
+    when 'spirthack'
+        find_pattern = Utils.PatternScan
+        create_interface = Utils.CreateInterface
 
 safe_mode = (xpcall and pcall) and true or false
 
@@ -211,7 +253,7 @@ class DllImport
         @cache[method]
 
 --#pragma region native_panorama_functions
-UIEngine = vtable(vtable_bind('panorama.dll', api == 'rifk7' and 'PanoramaUIEngine' or'PanoramaUIEngine001', 11, 'void*(__thiscall*)(void*)')!) -- :troll:
+UIEngine = vtable(vtable_bind('panorama.dll', 'PanoramaUIEngine001', 11, 'void*(__thiscall*)(void*)')!) -- :troll:
 nativeIsValidPanelPointer = UIEngine\get(36, 'bool(__thiscall*)(void*,void const*)')
 nativeGetLastDispatchedEventTargetPanel = UIEngine\get(56, 'void*(__thiscall*)(void*)')
 nativeCompileRunScript = UIEngine\get(113, 'void****(__thiscall*)(void*,void*,char const*,char const*,int,int,bool)')
