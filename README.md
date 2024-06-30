@@ -3,6 +3,8 @@
 ## Will there be cs2 support
 yes.
 
+**[WIP]** Experimental CS2 support [here](https://github.com/Shir0ha/luv8/blob/source2/panorama.moon), no prebuilt / stable version available at the moment.
+
 ## build  
 1. download and install [moonc compiler](https://moonscript.org/)  
 2. `./moonc panorama.moon`
