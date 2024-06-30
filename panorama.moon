@@ -468,7 +468,7 @@ class Object extends Value
     getPropertyNames: =>
         MaybeLocal(v8_dll\get('?GetPropertyNames@Object@v8@@QEAA?AV?$MaybeLocal@VArray@v8@@@2@V?$Local@VContext@v8@@@2@@Z', 'void*(__fastcall*)(void*,void*,void*)')(@this, intbuf, nil))
     callAsFunction: (recv, argc, argv) =>
-        MaybeLocal(v8_dll\get('?CallAsFunction@Object@v8@@QEAA?AV?$MaybeLocal@VValue@v8@@@2@V?$Local@VContext@v8@@@2@V?$Local@VValue@v8@@@2@HQEAV52@@Z', 'void*(__fastcall*)(void*,void*,void*,void*,int,void*)')(@this, intbuf, nil, recv, argc, argv))
+        MaybeLocal(v8_dll\get('?CallAsFunction@Object@v8@@QEAA?AV?$MaybeLocal@VValue@v8@@@2@V?$Local@VContext@v8@@@2@V?$Local@VValue@v8@@@2@HQEAV52@@Z', 'void*(__fastcall*)(void*,void*,void*,void*,int,void*)')(@this, intbuf, Isolate!\getCurrentContext!, recv, argc, argv))
     getIdentityHash: => v8_dll\get('?GetIdentityHash@Object@v8@@QEAAHXZ', 'int(__thiscall*)(void*)')(@this)
 
 class Array extends Object
