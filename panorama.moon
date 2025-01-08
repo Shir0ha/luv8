@@ -233,7 +233,7 @@ PersistentProxy_mt = {
             ret = HandleScope!(() -> this\getAsValue!\toArray!\length!)
         elseif this.baseType == 'Object' or this.baseType == 'Function' then
             ret = HandleScope!(() -> this\getAsValue!\toObject!\getPropertyNames!\toValueChecked!\toArray!\length!)
-        ret
+        tonumber(ret)
     __pairs: =>
         this = rawget(@,'this')
         ret = () -> nil
@@ -717,22 +717,22 @@ setmetatable(panorama, {
 add_shutdown_callback(shutdown)
 
 --test
--- panorama.setSafeMode(false)
--- panorama.loadstring("return function(name) { $.Msg(\"Hello world!!!!!!!! \" + name) }","CSGOHud")()(gui.ctx.user.username)
--- panorama.open()["$"].Msg("test")
+panorama.setSafeMode(false)
+panorama.loadstring("return function(name) { $.Msg(\"Hello world!!!!!!!! \" + name) }","CSGOHud")()(gui.ctx.user.username)
+panorama.open()["$"].Msg("test")
 
--- arrtest = panorama.loadstring("return [1,2,3]")()
+arrtest = panorama.loadstring("return [1,2,3]")()
 
--- for i,v in panorama.ipairs(arrtest) do
---     print(i,v)
+for i,v in panorama.ipairs(arrtest) do
+    print(i,v)
 
--- globalThis = panorama.open()
--- for i,v in panorama.pairs(globalThis) do
---     print(i,v)
+globalThis = panorama.open()
+for i,v in panorama.pairs(globalThis) do
+    print(i.." ",v," "..panorama.type(v))
 
--- print(panorama.len(globalThis))
--- print(panorama.type(globalThis))
--- print(panorama.type({}))
--- print(panorama.type(223))
+print(panorama.len(globalThis))
+print(panorama.type(globalThis))
+print(panorama.type({}))
+print(panorama.type(223))
 
 panorama
