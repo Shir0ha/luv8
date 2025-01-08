@@ -688,8 +688,8 @@ setmetatable(panorama, {
 add_shutdown_callback(shutdown)
 
 --test
-panorama.setSafeMode(false)
-panorama.loadstring("return function(name) { $.Msg(\"Hello world!!!!!!!! \" + name) }","CSGOHud")()(gui.ctx.user.username)
-panorama.open()["$"].Msg("test")
+--panorama.setSafeMode(false)
+--panorama.loadstring("return function(name) { $.Msg(\"Hello world!!!!!!!! \" + name) }","CSGOHud")()(gui.ctx.user.username)
+--panorama.open()["$"].Msg("test")
 
 panorama
