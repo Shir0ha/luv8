@@ -8,7 +8,7 @@
 ffi = ffi or require('ffi')
 local *
 
-_INFO = {_VERSION: 1.7}
+_INFO = {_VERSION: 2.0}
 
 setmetatable(_INFO,{
     __call: => self._VERSION,
@@ -25,102 +25,20 @@ add_shutdown_callback = () -> print('WARNING: Cleanup before shutdown disabled')
 local api
 while true
     if _G == nil
-        if quick_maths == nil
-            if info.fatality == nil
-                api = 'ev0lve'
-                break
-            api = 'fa7ality'
-            break
-        api = 'rifk7'
+        api = 'fa7ality'
         break
-    if gui ~= nil then
-        api = 'aimware'
-        break
-    if MatSystem ~= nil then
-        api = 'spirthack'
-        break
-    if file ~= nil then
-        api = 'legendware'
-        break
-    if GameEventManager ~= nil then
-        api = 'memesense'
-        break
-    if penetration ~= nil then
-        api = 'pandora'
-        break
-    if math_utils ~= nil then
-        api = 'legion'
-        break
-    if plist ~= nil then
-        api = 'gamesense'
-        break
-    if network ~= nil then
-        api = 'neverlose'
-        break
-    if renderer ~= nil and renderer.setup_texture ~= nil then
-        api = 'nixware'
-        break
-    api = 'primordial'
+    api = 'aimware'
     break
 
 switch api
-    when 'ev0lve'
-        find_pattern = utils.find_pattern
-        create_interface = utils.find_interface
-        add_shutdown_callback = () -> -- not needed
     when 'fa7ality'
         find_pattern = utils.find_pattern
-        create_interface = utils.find_interface
-        add_shutdown_callback = () -> -- not needed
-    when 'primordial'
-        find_pattern = memory.find_pattern
-        create_interface = memory.create_interface
-        add_shutdown_callback = (fn) -> callbacks.add(e_callbacks.SHUTDOWN, fn)
-    when 'memesense'
-        find_pattern = Utils.PatternScan
-        create_interface = Utils.CreateInterface
-        add_shutdown_callback = (fn) -> Cheat.RegisterCallback('destroy', fn)
-    when 'legendware'
-        find_pattern = utils.find_signature
-        create_interface = utils.create_interface
-        add_shutdown_callback = (fn) -> client.add_callback('unload', fn)
-    when 'pandora'
-        find_pattern = client.find_sig
-        create_interface = client.create_interface
-    when 'legion'
-        find_pattern = memory.find_pattern
-        create_interface = memory.create_interface
-        add_shutdown_callback = (fn) -> client.add_callback('on_unload', fn)
-    when 'gamesense'
-        find_pattern = (moduleName, pattern) ->
-            gsPattern = ''
-            for token in pattern\gmatch('%S+') do
-                gsPattern = gsPattern .. (token == '?' and '\xCC' or _G.string.char(tonumber(token, 16)))
-            return client.find_signature(moduleName, gsPattern)
-        create_interface = client.create_interface
-        add_shutdown_callback = (fn) -> client.set_event_callback('shutdown', fn)
-    when 'nixware'
-        find_pattern = client.find_pattern
-        create_interface = se.create_interface
-        add_shutdown_callback = (fn) -> client.register_callback("unload", fn)
-    when 'neverlose'
-        find_pattern = utils.opcode_scan
-        create_interface = utils.create_interface
-        add_shutdown_callback = () -> -- not needed
-    when 'rifk7'
-        find_pattern = (module_name, pattern) ->
-            stupid = cast("uintptr_t*",engine.signature(module_name, pattern))
-            assert(tonumber(stupid) ~= 0)
-            stupid[0]
         create_interface = (module_name, interface_name) ->
-            interface_name = _G.string.gsub(interface_name, "%d+", "")
-            general.create_interface(module_name, interface_name)
-        export print = (text) ->  -- :troll:
-            general.log_to_console_colored("[lua] "..tostring(text),255,141,161,255)
-            --general.log(text)
-    when 'spirthack'
-        find_pattern = Utils.PatternScan
-        create_interface = Utils.CreateInterface
+            fnptr = utils.find_export(module_name, 'CreateInterface')
+            if not fnptr then return nil
+            res = cast('void*(__cdecl*)(const char*, int*)', fnptr)(interface_name, nil)
+            res ~= nil and res or nil
+        add_shutdown_callback = () -> -- not needed
     when 'aimware'
         find_pattern = (module_name, pattern) ->
             pat = _G.string.gsub(pattern, '?', '??')
@@ -161,7 +79,7 @@ rawsetImpl = (tbl, key, value) ->
     setmetatable(tbl, nil)
     tbl[key] = value
     setmetatable(tbl, mtb)
-if not rawget then export rawget = rawgetImpl -- in case some cheat doesn't have rawset/rawget enabled (like rifk7)
+if not rawget then export rawget = rawgetImpl -- in case some cheat doesn't have rawset/rawget enabled (like fatality)
 if not rawset then export rawset = rawsetImpl
 __thiscall = (func, this) -> (...) -> func(this, ...)
 table_copy = (t) -> {k, v for k, v in pairs t}
@@ -173,6 +91,14 @@ vtable_entry = (instance, i, ct) -> cast(ct, cast(interface_ptr, instance)[0][i]
 vtable_thunk = (i, ct) ->
     t = typeof(ct)
     (instance, ...) -> vtable_entry(instance, i, t)(instance, ...)
+
+get_relative_call = (ptr) ->
+    offset = cast('uint32_t*',cast('uintptr_t', ptr) + 2)[0]
+    rip = ptr + 0x6
+    offset + rip
+
+--print(cast('uintptr_t*',get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 33 F6 48 8B C8')))[0])
+
 proc_bind = (() ->
     fnGetProcAddress = () -> error('Failed to load GetProcAddress')
     fnGetModuleHandle = () -> error('Failed to load GetModuleHandleA')
@@ -184,23 +110,13 @@ proc_bind = (() ->
         fnGetProcAddress = ffi.C.GetProcAddress
         fnGetModuleHandle = ffi.C.GetModuleHandleA
     else
-        fnGetProcAddress = cast('uintptr_t(__stdcall*)(uintptr_t, const char*)', cast('uintptr_t**', cast('uintptr_t', find_pattern('engine.dll', 'FF 15 ? ? ? ? A3 ? ? ? ? EB 05')) + 2)[0][0])
-        fnGetModuleHandle = cast('uintptr_t(__stdcall*)(const char*)', cast('uintptr_t**', cast('uintptr_t', find_pattern('engine.dll', 'FF 15 ? ? ? ? 85 C0 74 0B')) + 2)[0][0])
-    -- Gamesense really doesn't like when you call code in windows DLL's
-    if api == 'gamesense'
-        -- we need to use a gadget inside games code to call our function
-        proxyAddr = find_pattern('engine.dll', '51 C3') -- PUSH ECX; RET
-        fnGetProcAddressAddr = cast('void*', fnGetProcAddress)
-        fnGetProcAddress = (moduleHandle, functionName) ->
-            fnGetProcAddressProxy = cast('uintptr_t(__thiscall*)(void*, uintptr_t, const char*)', proxyAddr)
-            return fnGetProcAddressProxy(fnGetProcAddressAddr, moduleHandle, functionName)
-        fnGetModuleHandleAddr = cast('void*', fnGetModuleHandle)
-        fnGetModuleHandle = (moduleName) ->
-            fnGetModuleHandleProxy = cast('uintptr_t(__thiscall*)(void*, const char*)', proxyAddr)
-            return fnGetModuleHandleProxy(fnGetModuleHandleAddr, moduleName)
+        --I know I can do this with utils.find_export on fatality lol
+        fnGetProcAddress = cast('uintptr_t(__stdcall*)(uintptr_t, const char*)', cast('uintptr_t*',get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 48 85 C0 74 14 48 8B 0D ? ? ? ? 44')))[0])
+        fnGetModuleHandle = cast('uintptr_t(__stdcall*)(const char*)', cast('uintptr_t*',get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 33 F6 48 8B C8')))[0])
     (module_name, function_name, typedef) ->
         cast(typeof(typedef), fnGetProcAddress(fnGetModuleHandle(module_name), function_name))
     )!
+
 follow_call = (ptr) ->
     insn = cast('uint8_t*', ptr)
     switch insn[0]
@@ -290,7 +206,7 @@ class Local
     isValid: => @this[0] ~= nullptr
     getMessage: => Message(@this[0])
     globalize: =>
-        pPersistent = v8_dll\get('?GlobalizeReference@api_internal@v8@@YAPEA_KPEAVIsolate@internal@2@PEA_K@Z', 'void*(__fastcall*)(void*,void*,void*)')(pIsolate, @this[0], intbuf)
+        pPersistent = v8_dll\get('?GlobalizeReference@api_internal@v8@@YAPEA_KPEAVIsolate@internal@2@_K@Z', 'void*(__fastcall*)(void*,void*,void*)')(pIsolate, @this[0], intbuf)
         persistent = Persistent(pPersistent)
         persistentTbl[persistent\getIdentityHash!] = pPersistent
         persistent
@@ -354,9 +270,10 @@ PersistentProxy_mt = {
         ret = HandleScope!(() ->
             tryCatch = TryCatch!
             tryCatch\enter!
+            print(this\getAsValue!\toFunction!\isFunction!)
             rawReturn = this\getAsValue!\toFunction!\setParent(rawget(@,'parent'))(unpack(args))\toLocalChecked!
             if tryCatch\hasCaught! then --lol exception handling
-                nativeHandleException(tryCatch\getInternal!, panorama.getPanel("CSGOJsRegistration")) -- we don't keep track of panels..... so just throw everything in CSGOJsRegistration
+                nativeHandleException(tryCatch\getInternal!, panorama.getPanel("CSGOHud")) -- we don't keep track of panels..... so just throw everything in CSGOJsRegistration
                 if safe_mode then
                     terminateExecution = true
             tryCatch\exit!
@@ -374,6 +291,7 @@ PersistentProxy_mt = {
         HandleScope!(() -> this\getAsValue!\stringValue!)
     __gc: =>
         this = rawget(@,'this')
+        persistentTbl[this\getIdentityHash!] = nil
         this\disposeGlobal!
 }
 
@@ -391,7 +309,7 @@ class Persistent
     getAsValue: => Value(HandleScope\createHandle(@this)[0]) -- unsafe but efficient, we're assuming that every maybelocal is a local
     toLua: => -- should NOT be used if the persistent is an object!!!! cuz it will just return the same thing again
         @get!\toValueChecked!\toLua!
-    getIdentityHash: => v8_dll\get('?GetIdentityHash@Object@v8@@QEAAHXZ', 'int(__thiscall*)(void*)')(@this)
+    getIdentityHash: => tostring(@this) --LOL we just use the address instead
     __call: =>
         setmetatable({this: self, parent: nil}, PersistentProxy_mt)
 
@@ -595,7 +513,7 @@ class HandleScope
     enter: => v8_dll\get('??0HandleScope@v8@@QEAA@PEAVIsolate@1@@Z', 'void(__fastcall*)(void*,void*)')(@this, pIsolate)
     exit: => v8_dll\get('??1HandleScope@v8@@QEAA@XZ', 'void(__thiscall*)(void*)')(@this)
     createHandle: (val) => v8_dll\get('?CreateHandle@HandleScope@v8@@KAPEA_KPEAVIsolate@internal@2@_K@Z', 'void**(__fastcall*)(void*,void*)')(pIsolate, val)
-    __call: (func, panel = panorama.GetPanel('CSGOJsRegistration')) =>
+    __call: (func, panel = panorama.GetPanel('CSGOHud')) =>
         isolate = Isolate!
         isolate\enter!
         @enter!
@@ -646,6 +564,7 @@ class Script
         ctx\enter!
         tryCatch = TryCatch!
         tryCatch\enter!
+        ret = nullptr
         ret = MaybeLocal(@run(compiled!\getInternal!, ctx\getInternal!))\toValueChecked! -- nativeRunScript does not create it's own handlescope/context, we need to enter the context manually
         tryCatch\exit!
         if ret == nullptr then -- this doesn't happen very often if at all...
@@ -734,17 +653,17 @@ panorama.getPanel = (panelName, fallback) ->
 
 panorama.getIsolate = () -> Isolate(nativeGetIsolate!)
 
-panorama.runScript = (jsCode, panel = panorama.getPanel('CSGOJsRegistration'), pathToXMLContext = 'panorama/layout/base.xml') ->
+panorama.runScript = (jsCode, panel = panorama.getPanel('CSGOHud'), pathToXMLContext = 'panorama/layout/base.xml') ->
     if not nativeIsValidPanelPointer(panel) then error('Invalid panel pointer (EAX == 0)')
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
-panorama.loadstring = (jsCode, panel = 'CSGOJsRegistration') ->
+panorama.loadstring = (jsCode, panel = 'CSGOHud') ->
     fallback = 'CSGOJsRegistration'
     if panel == 'CSGOMainMenu' then fallback = 'CSGOHud'
     if panel == 'CSGOHud' then fallback = 'CSGOMainMenu'
     Script\loadstring('(()=>{%s})'\format(jsCode), panorama.getPanel(panel, fallback))
 
-panorama.open = (panel = 'CSGOJsRegistration') ->
+panorama.open = (panel = 'CSGOHud') ->
     fallback = 'CSGOJsRegistration'
     if panel == 'CSGOMainMenu' then fallback = 'CSGOHud'
     if panel == 'CSGOHud' then fallback = 'CSGOMainMenu'
@@ -768,6 +687,8 @@ setmetatable(panorama, {
 })
 --#pragma endregion panorma_functions
 
---add_shutdown_callback(shutdown)
+add_shutdown_callback(shutdown)
+--test
+panorama.loadstring("$.Msg(\"hello world\")","CSGOHud")()
 
 panorama
