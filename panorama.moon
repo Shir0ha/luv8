@@ -667,11 +667,11 @@ panorama.open = (panel = 'CSGOHud') ->
     HandleScope!((() -> Context(Isolate!\getCurrentContext!)\global!\toValueChecked!\toLua!), panorama.GetPanel(panel, fallback))
 
 
-panorama.SetSafeMode = (enabled) -> safe_mode = enabled
 panorama.GetPanel = panorama.getPanel -- backwards compatibility
 panorama.GetIsolate = panorama.getIsolate
 panorama.RunScript = panorama.runScript -- backwards compatibility
 panorama.panelArray = panelArray
+panorama.setSafeMode = (enabled) -> safe_mode = enabled
 
 panorama.info = _INFO
 panorama.flush = shutdown
@@ -688,8 +688,8 @@ setmetatable(panorama, {
 add_shutdown_callback(shutdown)
 
 --test
---panorama.SetSafeMode(false)
---panorama.loadstring("return function(name) { $.Msg(\"Hello world!!!!!!!! \" + name) }","CSGOHud")()(gui.ctx.user.username)
---panorama.open()["$"].Msg("test")
+panorama.setSafeMode(false)
+panorama.loadstring("return function(name) { $.Msg(\"Hello world!!!!!!!! \" + name) }","CSGOHud")()(gui.ctx.user.username)
+panorama.open()["$"].Msg("test")
 
 panorama
