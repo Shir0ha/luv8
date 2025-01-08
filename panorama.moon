@@ -227,7 +227,6 @@ PersistentProxy_mt = {
         this = rawget(@,'this')
         HandleScope!(() -> this\getAsValue!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toValueChecked!\toLua!)
     __len: =>
-        print("len called")
         this = rawget(@,'this')
         ret = 0
         if this.baseType == 'Array' then
