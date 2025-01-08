@@ -227,23 +227,28 @@ PersistentProxy_mt = {
         this = rawget(@,'this')
         HandleScope!(() -> this\getAsValue!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toValueChecked!\toLua!)
     __len: =>
+        print("len called")
         this = rawget(@,'this')
         ret = 0
         if this.baseType == 'Array' then
             ret = HandleScope!(() -> this\getAsValue!\toArray!\length!)
-        elseif this.baseType == 'Object' then
+        elseif this.baseType == 'Object' or this.baseType == 'Function' then
             ret = HandleScope!(() -> this\getAsValue!\toObject!\getPropertyNames!\toValueChecked!\toArray!\length!)
         ret
     __pairs: =>
         this = rawget(@,'this')
         ret = () -> nil
-        if this.baseType == 'Object' then
+        if this.baseType == 'Object' or this.baseType == 'Function' then
             HandleScope!(() ->
-                keys = Array(this\getAsValue!\toObject!\getPropertyNames!\toValueChecked!)
-                current, size = 0, keys\length!
+                keys = Array(this\getAsValue!\toObject!\getPropertyNames!\toValueChecked!\getInternal!)
+                current, size = 0, tonumber(keys\length!)
+                --we store all keys at once, so that we don't have to enter a handlescope for every item in the property names array
+                --of course I could have just globalized the keys array and use it, but I feel like it's completely unnecessary
+                --this array is a lua array, so it begins at 1
+                keys_localized = [keys\get(i)\toValueChecked!\stringValue! for i=0, size-1]
                 ret = () ->
                     current = current+1
-                    key = keys[current-1]
+                    key = keys_localized[current]
                     if current <= size then
                         return key, @[key]
             )
@@ -676,6 +681,31 @@ panorama.setSafeMode = (enabled) -> safe_mode = enabled
 panorama.info = _INFO
 panorama.flush = shutdown
 
+panorama.pairs = (t) ->
+    metatable = getmetatable(t)
+    if metatable and metatable.__pairs then
+        return metatable.__pairs(t)
+    pairs(t)
+
+panorama.ipairs = (t) ->
+    metatable = getmetatable(t)
+    if metatable and metatable.__ipairs then
+        return metatable.__ipairs(t)
+    ipairs(t)
+
+panorama.len = (t) ->
+    metatable = getmetatable(t)
+    if metatable and metatable.__len then
+        return metatable.__len(t)
+    #t
+
+panorama.type = (t) ->
+    if type(t) == "table" then
+        this = rawget(t,"this")
+        if this and this.baseType then
+            return "PersistentProxy(%s)"\format(this.baseType)
+    type(t)
+
 setmetatable(panorama, {
     __tostring: => 'luv8 panorama library v%.1f'\format(_INFO._VERSION)
     __index: (key) =>
@@ -688,8 +718,22 @@ setmetatable(panorama, {
 add_shutdown_callback(shutdown)
 
 --test
---panorama.setSafeMode(false)
---panorama.loadstring("return function(name) { $.Msg(\"Hello world!!!!!!!! \" + name) }","CSGOHud")()(gui.ctx.user.username)
---panorama.open()["$"].Msg("test")
+-- panorama.setSafeMode(false)
+-- panorama.loadstring("return function(name) { $.Msg(\"Hello world!!!!!!!! \" + name) }","CSGOHud")()(gui.ctx.user.username)
+-- panorama.open()["$"].Msg("test")
+
+-- arrtest = panorama.loadstring("return [1,2,3]")()
+
+-- for i,v in panorama.ipairs(arrtest) do
+--     print(i,v)
+
+-- globalThis = panorama.open()
+-- for i,v in panorama.pairs(globalThis) do
+--     print(i,v)
+
+-- print(panorama.len(globalThis))
+-- print(panorama.type(globalThis))
+-- print(panorama.type({}))
+-- print(panorama.type(223))
 
 panorama
