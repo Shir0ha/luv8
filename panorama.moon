@@ -206,7 +206,7 @@ class Local
     isValid: => @this[0] ~= nullptr
     getMessage: => Message(@this[0])
     globalize: =>
-        pPersistent = v8_dll\get('?GlobalizeReference@api_internal@v8@@YAPEA_KPEAVIsolate@internal@2@_K@Z', 'void*(__fastcall*)(void*,void*,void*)')(pIsolate, @this[0], intbuf)
+        pPersistent = v8_dll\get('?GlobalizeReference@api_internal@v8@@YAPEA_KPEAVIsolate@internal@2@_K@Z', 'void*(__fastcall*)(void*,void*)')(pIsolate, @this[0])
         persistent = Persistent(pPersistent)
         persistentTbl[persistent\getIdentityHash!] = pPersistent
         persistent
@@ -270,7 +270,6 @@ PersistentProxy_mt = {
         ret = HandleScope!(() ->
             tryCatch = TryCatch!
             tryCatch\enter!
-            print(this\getAsValue!\toFunction!\isFunction!)
             rawReturn = this\getAsValue!\toFunction!\setParent(rawget(@,'parent'))(unpack(args))\toLocalChecked!
             if tryCatch\hasCaught! then --lol exception handling
                 nativeHandleException(tryCatch\getInternal!, panorama.getPanel("CSGOHud")) -- we don't keep track of panels..... so just throw everything in CSGOJsRegistration
@@ -309,7 +308,7 @@ class Persistent
     getAsValue: => Value(HandleScope\createHandle(@this)[0]) -- unsafe but efficient, we're assuming that every maybelocal is a local
     toLua: => -- should NOT be used if the persistent is an object!!!! cuz it will just return the same thing again
         @get!\toValueChecked!\toLua!
-    getIdentityHash: => tostring(@this) --LOL we just use the address instead
+    getIdentityHash: => v8_dll\get('?GetIdentityHash@Object@v8@@QEAAHXZ', 'int(__thiscall*)(void*)')(@this)
     __call: =>
         setmetatable({this: self, parent: nil}, PersistentProxy_mt)
 
@@ -359,17 +358,15 @@ class Value
         Array(MaybeLocal(v8_dll\get('?ToObject@Value@v8@@QEBA?AV?$MaybeLocal@VObject@v8@@@2@V?$Local@VContext@v8@@@2@@Z', 'void*(__fastcall*)(void*,void*)')(@this, intbuf))\toValueChecked!\getInternal!)
     toFunction: =>
         Function(MaybeLocal(v8_dll\get('?ToObject@Value@v8@@QEBA?AV?$MaybeLocal@VObject@v8@@@2@V?$Local@VContext@v8@@@2@@Z', 'void*(__fastcall*)(void*,void*)')(@this, intbuf))\toValueChecked!\getInternal!)
-    toLocal: =>
-        Local(new('void*[1]',@this))
     toLua: =>
         if @isUndefined! or @isNull! then return nil
         if @isBoolean! or @isBooleanObject! then return @booleanValue!
         if @isNumber! or @isNumberObject! then return @numberValue!
         if @isString! or @isStringObject! then return @stringValue!
         if @isObject! then -- returns persistent proxy
-            if @isArray! then return @toArray!\toLocal!\globalize!\setType('Array')!
-            if @isFunction! then return @toFunction!\toLocal!\globalize!\setType('Function')!
-            return @toObject!\toLocal!\globalize!\setType('Object')!
+            if @isArray! then return Local(@this)\globalize!\setType('Array')!
+            if @isFunction! then return Local(@this)\globalize!\setType('Function')!
+            return Local(@this)\globalize!\setType('Object')!
         error('Failed to convert from v8js to lua: Unknown type')
     getInternal: => @this
 
