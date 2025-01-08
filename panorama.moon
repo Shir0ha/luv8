@@ -64,6 +64,7 @@ if error then
     export error = (msg) ->
         shutdown!
         _error(msg)
+        you_are_seeing_this_because_the_error_handling_of_your_software_is_non_existent()
 exception = (msg) ->
     print('Caught lua exception in V8 HandleScope: ', tostring(msg))
 exceptionCb = (msg) ->
@@ -91,13 +92,10 @@ vtable_entry = (instance, i, ct) -> cast(ct, cast(interface_ptr, instance)[0][i]
 vtable_thunk = (i, ct) ->
     t = typeof(ct)
     (instance, ...) -> vtable_entry(instance, i, t)(instance, ...)
-
 get_relative_call = (ptr) ->
     offset = cast('uint32_t*',cast('uintptr_t', ptr) + 2)[0]
     rip = ptr + 0x6
     offset + rip
-
---print(cast('uintptr_t*',get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 33 F6 48 8B C8')))[0])
 
 proc_bind = (() ->
     fnGetProcAddress = () -> error('Failed to load GetProcAddress')
@@ -561,7 +559,6 @@ class Script
         ctx\enter!
         tryCatch = TryCatch!
         tryCatch\enter!
-        ret = nullptr
         ret = MaybeLocal(@run(compiled!\getInternal!, ctx\getInternal!))\toValueChecked! -- nativeRunScript does not create it's own handlescope/context, we need to enter the context manually
         tryCatch\exit!
         if ret == nullptr then -- this doesn't happen very often if at all...
@@ -654,11 +651,13 @@ panorama.runScript = (jsCode, panel = panorama.getPanel('CSGOHud'), pathToXMLCon
     if not nativeIsValidPanelPointer(panel) then error('Invalid panel pointer (EAX == 0)')
     nativeCompileRunScript(panel,jsCode,pathToXMLContext,8,10,false)
 
-panorama.loadstring = (jsCode, panel = 'CSGOHud') ->
+panorama.loadrawstring = (jsCode, panel = 'CSGOHud') ->
     fallback = 'CSGOJsRegistration'
     if panel == 'CSGOMainMenu' then fallback = 'CSGOHud'
     if panel == 'CSGOHud' then fallback = 'CSGOMainMenu'
-    Script\loadstring('(()=>{%s})'\format(jsCode), panorama.getPanel(panel, fallback))
+    Script\loadstring(jsCode, panorama.getPanel(panel, fallback))
+
+panorama.loadstring = (jsCode, panel = 'CSGOHud') -> panorama.loadrawstring('(()=>{%s})'\format(jsCode),panel)
 
 panorama.open = (panel = 'CSGOHud') ->
     fallback = 'CSGOJsRegistration'
@@ -667,6 +666,7 @@ panorama.open = (panel = 'CSGOHud') ->
     HandleScope!((() -> Context(Isolate!\getCurrentContext!)\global!\toValueChecked!\toLua!), panorama.GetPanel(panel, fallback))
 
 
+panorama.SetSafeMode = (enabled) -> safe_mode = enabled
 panorama.GetPanel = panorama.getPanel -- backwards compatibility
 panorama.GetIsolate = panorama.getIsolate
 panorama.RunScript = panorama.runScript -- backwards compatibility
@@ -685,7 +685,10 @@ setmetatable(panorama, {
 --#pragma endregion panorma_functions
 
 add_shutdown_callback(shutdown)
+
 --test
-panorama.loadstring("$.Msg(\"hello world\")","CSGOHud")()
+--panorama.SetSafeMode(false)
+--panorama.loadstring("return function(lol){ lol(\"test\") }","CSGOHud")()(print)
+--panorama.open()["$"].Msg("test")
 
 panorama
