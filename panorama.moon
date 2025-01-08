@@ -8,7 +8,7 @@
 ffi = ffi or require('ffi')
 local *
 
-_INFO = {_VERSION: 2.0}
+_INFO = {_VERSION: 1.99}
 
 setmetatable(_INFO,{
     __call: => self._VERSION,
@@ -328,6 +328,7 @@ class Value
                 else
                     return Object\fromLua(pIsolate,val)
             when 'function'
+                error('passing a lua function is not supported right now, if you can fix it, feel free to submit a pr')
                 return FunctionTemplate(v8js_function(val))\getFunction!!
             else
                 error('Failed to convert from lua to v8js: Unknown type')
@@ -417,7 +418,7 @@ class Function extends Object
 --to be honest this part is kinda messy, method names are confusing as fuck
 class FunctionTemplate
     new: (callback) =>
-        @this = MaybeLocal(v8_dll\get('?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PEAVIsolate@2@P6AXAEBV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@W4SideEffectType@2@PEBVCFunction@2@GGG@Z', 'void*(__cdecl*)(void*,void*,void*,void*,void*,int,int)')(intbuf,pIsolate,cast('void(__cdecl*)(void******)',callback),new('int[1]'),new('int[1]'),0,0))\toLocalChecked!
+        @this = MaybeLocal(v8_dll\get('?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PEAVIsolate@2@P6AXAEBV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@W4SideEffectType@2@PEBVCFunction@2@GGG@Z', 'void*(__cdecl*)(void*,void*,void*,void*,void*,int,int,int,int,uint16_t,uint16_t,uint16_t)')(intbuf,pIsolate,cast('void(__cdecl*)(void******)',callback),new('int[1]'),new('int[1]'),0,0,0,0,0,0,0))\toLocalChecked!
     getFunction: () =>
         MaybeLocal(v8_dll\get('?GetFunction@FunctionTemplate@v8@@QEAA?AV?$MaybeLocal@VFunction@v8@@@2@V?$Local@VContext@v8@@@2@@Z', 'void*(__fastcall*)(void*, void*, void*)')(@this!\getInternal!, intbuf, nil))\toLocalChecked!
     getInstance: => @this!
@@ -688,7 +689,7 @@ add_shutdown_callback(shutdown)
 
 --test
 --panorama.SetSafeMode(false)
---panorama.loadstring("return function(lol){ lol(\"test\") }","CSGOHud")()(print)
+--panorama.loadstring("return function(name) { $.Msg(\"Hello world!!!!!!!! \" + name) }","CSGOHud")()(gui.ctx.user.username)
 --panorama.open()["$"].Msg("test")
 
 panorama
