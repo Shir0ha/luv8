@@ -45,7 +45,7 @@ end
 
 arrtest = panorama.loadstring("return [1, false, \"test\"]") -- this compiles the js code and returns a reference to the function
 
-print(tostring(arrtest)) -- ()=>{return [1, false, "test"] as you can see, we have a wrapper function builtin, this used to be required in CSGO, but not anymore in CS2
+print(tostring(arrtest)) -- ()=>{return [1, false, "test"] as you can see, we have a wrapper function builtin
 
 --now we call that function
 arr = arrtest()
