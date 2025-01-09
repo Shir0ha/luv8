@@ -261,7 +261,7 @@ PersistentProxy_mt = {
                 ret = () ->
                     current = current+1
                     if current <= size then
-                        return current, @[current-1]
+                        return current-1, @[current-1]
             )
         ret
     __call: (...) =>
@@ -715,24 +715,5 @@ setmetatable(panorama, {
 --#pragma endregion panorma_functions
 
 add_shutdown_callback(shutdown)
-
---test
-panorama.setSafeMode(false)
-panorama.loadstring("return function(name) { $.Msg(\"Hello world!!!!!!!! \" + name) }","CSGOHud")()(gui.ctx.user.username)
-panorama.open()["$"].Msg("test")
-
-arrtest = panorama.loadstring("return [1,2,3]")()
-
-for i,v in panorama.ipairs(arrtest) do
-    print(i,v)
-
-globalThis = panorama.open()
-for i,v in panorama.pairs(globalThis) do
-    print(i.." ",v," "..panorama.type(v))
-
-print(panorama.len(globalThis))
-print(panorama.type(globalThis))
-print(panorama.type({}))
-print(panorama.type(223))
 
 panorama
