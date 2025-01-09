@@ -69,8 +69,6 @@ print(panorama.len(js_globalThis)) -- 35, this works for objects and even functi
 -- you can also access individual elements of an array or object
 print(arr[0]) -- 0 is the starting index for array access..... I know this is not the lua standard but fuck the lua standard
 
--- you might have noticed this but basically, I trolled, and 
-
 
 -- example of loadrawstring, it removes the wrapper function
 arrtest=panorama.loadrawstring("[1, false, \"test\"]")
