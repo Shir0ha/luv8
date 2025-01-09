@@ -509,7 +509,7 @@ class Context
         MaybeLocal(v8_dll\get('?Global@Context@v8@@QEAA?AV?$Local@VObject@v8@@@2@XZ', 'void*(__fastcall*)(void*,void*)')(@this, intbuf))
 
 class HandleScope
-    new: => @this = new('char[0x18]')
+    new: => @this = new('char[0x24]')
     enter: => v8_dll\get('??0HandleScope@v8@@QEAA@PEAVIsolate@1@@Z', 'void(__fastcall*)(void*,void*)')(@this, pIsolate)
     exit: => v8_dll\get('??1HandleScope@v8@@QEAA@XZ', 'void(__thiscall*)(void*)')(@this)
     createHandle: (val) => v8_dll\get('?CreateHandle@HandleScope@v8@@KAPEA_KPEAVIsolate@internal@2@_K@Z', 'void**(__fastcall*)(void*,void*)')(pIsolate, val)
@@ -532,7 +532,7 @@ class HandleScope
         val
 
 class TryCatch
-    new: => @this = new('char[0x30]') -- I pulled this out of my ass
+    new: => @this = new('char[0x48]')
     enter: => v8_dll\get('??0TryCatch@v8@@QEAA@PEAVIsolate@1@@Z', 'void(__fastcall*)(void*, void*)')(@this, pIsolate)
     exit: => v8_dll\get('??1TryCatch@v8@@QEAA@XZ', 'void(__thiscall*)(void*)')(@this)
     canContinue: => v8_dll\get('?CanContinue@TryCatch@v8@@QEBA_NXZ', 'bool(__thiscall*)(void*)')(@this)
