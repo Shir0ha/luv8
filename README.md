@@ -93,6 +93,22 @@ local steam_name = panorama.MyPersonaAPI.GetName()
 print(steam_name) -- dhdj
 print(type(steam_name)) -- string
 -- notice how the type is a lua string, rather than a PersistentProxy(String), this is because only Objects, Arrays and Functions are passed by reference, all other types are passed by value
+
+-- last thing is that panorama.open() as well as object indexing does not do any caching. so it is better to
+local js = panorama.open()
+js_MyPersonaAPI = js.MyPersonaAPI
+js_MyPersonaAPI_GetName = js_MyPersonaAPI.GetName
+for i=1,10 do
+    js_MyPersonaAPI_GetName()
+end
+-- rather than
+for i=1,10 do
+    panorama.open().MyPersonaAPI.GetName()
+end
+-- when you have to call a js function multiple times
+
+-- the neverlose style globalThis access has a caching mechanism, however object indexing still does not
+print(panorama.MyPersonaAPI.GetName()) -- panorama.MyPersonaAPI is cached, since we have already used it once, GetName is not, thus a handlescope was entered in order to access it, and another handlescope was entered in order to call it
 ```
 
 ## resources

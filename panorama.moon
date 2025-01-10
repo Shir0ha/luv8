@@ -8,7 +8,7 @@
 ffi = ffi or require('ffi')
 local *
 
-_INFO = {_VERSION: 1.99}
+_INFO = {_VERSION: 1.999}
 
 setmetatable(_INFO,{
     __call: => self._VERSION,
@@ -225,7 +225,7 @@ PersistentProxy_mt = {
         ret
     __newindex: (key, value) =>
         this = rawget(@,'this')
-        HandleScope!(() -> this\getAsValue!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!)\toValueChecked!\toLua!)
+        HandleScope!(() -> this\getAsValue!\toObject!\set(Value\fromLua(key)\getInternal!,Value\fromLua(value)\getInternal!))
     __len: =>
         this = rawget(@,'this')
         ret = 0
@@ -320,6 +320,8 @@ class Value
         if val==nil then return Null(pIsolate)\getValue!
         valType = type(val)
         switch valType
+            when 'nil'
+                return Null(pIsolate)\getValue!
             when 'boolean'
                 return Boolean(pIsolate,val)\getValue!
             when 'number'
@@ -327,7 +329,10 @@ class Value
             when 'string'
                 return String(pIsolate,val)\getInstance!
             when 'table'
-                if is_array(val) then
+                this = rawget(val,"this")
+                if this and this.baseType then
+                    return this\getAsValue!
+                elseif is_array(val) then
                     return Array\fromLua(pIsolate,val)
                 else
                     return Object\fromLua(pIsolate,val)
@@ -382,7 +387,7 @@ class Object extends Value
         obj
     get: (key) =>
         MaybeLocal(v8_dll\get('?Get@Object@v8@@QEAA?AV?$MaybeLocal@VValue@v8@@@2@V?$Local@VContext@v8@@@2@V?$Local@VValue@v8@@@2@@Z', 'void*(__fastcall*)(void*,void*,void*,void*)')(@this, intbuf, nil, key))
-    set: (key, value) => v8_dll\get('?Set@Object@v8@@QEAA?AV?$Maybe@_N@2@V?$Local@VContext@v8@@@2@V?$Local@VValue@v8@@@2@1@Z', 'bool(__fastcall*)(void*,void*,void*,void*,void*)')(@this, intbuf, nil, key, value)
+    set: (key, value) => v8_dll\get('?Set@Object@v8@@QEAA?AV?$Maybe@_N@2@V?$Local@VContext@v8@@@2@V?$Local@VValue@v8@@@2@1@Z', 'bool(__fastcall*)(void*,void*,void*,void*,void*)')(@this, intbuf, Isolate!\getCurrentContext!, key, value)
     getPropertyNames: =>
         MaybeLocal(v8_dll\get('?GetPropertyNames@Object@v8@@QEAA?AV?$MaybeLocal@VArray@v8@@@2@V?$Local@VContext@v8@@@2@@Z', 'void*(__fastcall*)(void*,void*,void*)')(@this, intbuf, nil))
     callAsFunction: (recv, argc, argv) =>
@@ -392,14 +397,14 @@ class Object extends Value
 class Array extends Object
     new: (val) => @this = val
     fromLua: (isolate, val) =>
-        arr = Array(MaybeLocal(v8_dll\get('?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PEAVIsolate@2@PEAV?$Local@VValue@v8@@@2@_K@Z','void*(__fastcall*)(void*,void*,int)')(intbuf, isolate, #val))\toValueChecked!\getInternal!)
+        arr = Array(MaybeLocal(v8_dll\get('?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PEAVIsolate@2@H@Z','void*(__fastcall*)(void*,void*,int)')(intbuf, isolate, #val))\toValueChecked!\getInternal!)
         for i=1, #val do
             arr\set(i-1,Value\fromLua(val[i])\getInternal!)
         arr
     get: (key) =>
         MaybeLocal(v8_dll\get('?Get@Object@v8@@QEAA?AV?$MaybeLocal@VValue@v8@@@2@V?$Local@VContext@v8@@@2@I@Z', 'void*(__fastcall*)(void*,void*,void*,unsigned int)')(@this, intbuf, nil, key))-- this is NOT the same as the one above
     set: (key, value) =>
-        v8_dll\get('?Set@Object@v8@@QEAA?AV?$Maybe@_N@2@V?$Local@VContext@v8@@@2@IV?$Local@VValue@v8@@@2@@Z', 'bool(__fastcall*)(void*,void*,void*,unsigned int,void*)')(@this, intbuf, nil, key, value)
+        v8_dll\get('?Set@Object@v8@@QEAA?AV?$Maybe@_N@2@V?$Local@VContext@v8@@@2@IV?$Local@VValue@v8@@@2@@Z', 'bool(__fastcall*)(void*,void*,void*,unsigned int,void*)')(@this, intbuf, Isolate!\getCurrentContext!, key, value)
     length: => v8_dll\get('?Length@Array@v8@@QEBAIXZ', 'uintptr_t(__thiscall*)(void*)')(@this)
 
 class Function extends Object
@@ -467,13 +472,13 @@ class Primitive extends Value
     toString: => @this\getValue!\stringValue!
 
 class Null extends Primitive
-    new: (isolate) => @this = Value(cast('uintptr_t', isolate) + 0x120)
-
+    new: (isolate) => @this = Value(cast('uintptr_t', isolate) + 0x270)
+-- 0x268 is "the hole"
 class Undefined extends Primitive
-    new: (isolate) => @this = Value(cast('uintptr_t', isolate) + 0x110)
+    new: (isolate) => @this = Value(cast('uintptr_t', isolate) + 0x260)
 
 class Boolean extends Primitive
-    new: (isolate, bool) => @this = Value(cast('uintptr_t', isolate) + (if bool then 0x128 else 0x130))
+    new: (isolate, bool) => @this = Value(cast('uintptr_t', isolate) + (if bool then 0x278 else 0x280))
 
 class Number extends Value
     new: (isolate, val) =>
@@ -705,12 +710,19 @@ panorama.type = (t) ->
             return "PersistentProxy(%s)"\format(this.baseType)
     type(t)
 
+panorama.ref_cache = {}
+
 setmetatable(panorama, {
     __tostring: => 'luv8 panorama library v%.1f'\format(_INFO._VERSION)
     __index: (key) =>
+        cachedKey = panorama.ref_cache[key]
+        if cachedKey ~= nil then
+            return cachedKey
         if panorama.hasPanel(key) then
-            return panorama.open(key)
-        panorama.open![key]
+            panorama.ref_cache[key] = panorama.open(key)
+            return panorama.ref_cache[key]
+        panorama.ref_cache[key] = panorama.open![key]
+        panorama.ref_cache[key]
 })
 --#pragma endregion panorma_functions
 

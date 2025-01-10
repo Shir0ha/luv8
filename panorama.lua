@@ -1,7 +1,7 @@
 local ffi = ffi or require('ffi')
 local _INFO, cast, typeof, new, string, metatype, find_pattern, create_interface, add_shutdown_callback, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, get_relative_call, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeCompileRunScript, nativeGetIsolate, nativeHandleException, nativeGetID, nativeGetPanelContext, jsContexts, v8_dll, pIsolate, persistentTbl, Message, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelArray
 _INFO = {
-    _VERSION = 1.99
+    _VERSION = 1.999
 }
 setmetatable(_INFO, {
     __call = function(self)
@@ -393,7 +393,7 @@ PersistentProxy_mt = {
     __newindex = function(self, key, value)
         local this = rawget(self, 'this')
         return HandleScope()(function()
-            return this:getAsValue():toObject():set(Value:fromLua(key):getInternal(), Value:fromLua(value):getInternal()):toValueChecked():toLua()
+            return this:getAsValue():toObject():set(Value:fromLua(key):getInternal(), Value:fromLua(value):getInternal())
         end)
     end,
     __len = function(self)
@@ -566,14 +566,19 @@ do
             end
             local valType = type(val)
             local _exp_1 = valType
-            if 'boolean' == _exp_1 then
+            if 'nil' == _exp_1 then
+                return Null(pIsolate):getValue()
+            elseif 'boolean' == _exp_1 then
                 return Boolean(pIsolate, val):getValue()
             elseif 'number' == _exp_1 then
                 return Number(pIsolate, val):getInstance()
             elseif 'string' == _exp_1 then
                 return String(pIsolate, val):getInstance()
             elseif 'table' == _exp_1 then
-                if is_array(val) then
+                local this = rawget(val, "this")
+                if this and this.baseType then
+                    return this:getAsValue()
+                elseif is_array(val) then
                     return Array:fromLua(pIsolate, val)
                 else
                     return Object:fromLua(pIsolate, val)
@@ -701,7 +706,7 @@ do
             return MaybeLocal(v8_dll:get('?Get@Object@v8@@QEAA?AV?$MaybeLocal@VValue@v8@@@2@V?$Local@VContext@v8@@@2@V?$Local@VValue@v8@@@2@@Z', 'void*(__fastcall*)(void*,void*,void*,void*)')(self.this, intbuf, nil, key))
         end,
         set = function(self, key, value)
-            return v8_dll:get('?Set@Object@v8@@QEAA?AV?$Maybe@_N@2@V?$Local@VContext@v8@@@2@V?$Local@VValue@v8@@@2@1@Z', 'bool(__fastcall*)(void*,void*,void*,void*,void*)')(self.this, intbuf, nil, key, value)
+            return v8_dll:get('?Set@Object@v8@@QEAA?AV?$Maybe@_N@2@V?$Local@VContext@v8@@@2@V?$Local@VValue@v8@@@2@1@Z', 'bool(__fastcall*)(void*,void*,void*,void*,void*)')(self.this, intbuf, Isolate():getCurrentContext(), key, value)
         end,
         getPropertyNames = function(self)
             return MaybeLocal(v8_dll:get('?GetPropertyNames@Object@v8@@QEAA?AV?$MaybeLocal@VArray@v8@@@2@V?$Local@VContext@v8@@@2@@Z', 'void*(__fastcall*)(void*,void*,void*)')(self.this, intbuf, nil))
@@ -751,7 +756,7 @@ do
     local _parent_0 = Object
     local _base_0 = {
         fromLua = function(self, isolate, val)
-            local arr = Array(MaybeLocal(v8_dll:get('?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PEAVIsolate@2@PEAV?$Local@VValue@v8@@@2@_K@Z', 'void*(__fastcall*)(void*,void*,int)')(intbuf, isolate, #val)):toValueChecked():getInternal())
+            local arr = Array(MaybeLocal(v8_dll:get('?New@Array@v8@@SA?AV?$Local@VArray@v8@@@2@PEAVIsolate@2@H@Z', 'void*(__fastcall*)(void*,void*,int)')(intbuf, isolate, #val)):toValueChecked():getInternal())
             for i = 1, #val do
                 arr:set(i - 1, Value:fromLua(val[i]):getInternal())
             end
@@ -761,7 +766,7 @@ do
             return MaybeLocal(v8_dll:get('?Get@Object@v8@@QEAA?AV?$MaybeLocal@VValue@v8@@@2@V?$Local@VContext@v8@@@2@I@Z', 'void*(__fastcall*)(void*,void*,void*,unsigned int)')(self.this, intbuf, nil, key))
         end,
         set = function(self, key, value)
-            return v8_dll:get('?Set@Object@v8@@QEAA?AV?$Maybe@_N@2@V?$Local@VContext@v8@@@2@IV?$Local@VValue@v8@@@2@@Z', 'bool(__fastcall*)(void*,void*,void*,unsigned int,void*)')(self.this, intbuf, nil, key, value)
+            return v8_dll:get('?Set@Object@v8@@QEAA?AV?$Maybe@_N@2@V?$Local@VContext@v8@@@2@IV?$Local@VValue@v8@@@2@@Z', 'bool(__fastcall*)(void*,void*,void*,unsigned int,void*)')(self.this, intbuf, Isolate():getCurrentContext(), key, value)
         end,
         length = function(self)
             return v8_dll:get('?Length@Array@v8@@QEBAIXZ', 'uintptr_t(__thiscall*)(void*)')(self.this)
@@ -1006,7 +1011,7 @@ do
     setmetatable(_base_0, _parent_0.__base)
     _class_0 = setmetatable({
         __init = function(self, isolate)
-            self.this = Value(cast('uintptr_t', isolate) + 0x120)
+            self.this = Value(cast('uintptr_t', isolate) + 0x270)
         end,
         __base = _base_0,
         __name = "Null",
@@ -1043,7 +1048,7 @@ do
     setmetatable(_base_0, _parent_0.__base)
     _class_0 = setmetatable({
         __init = function(self, isolate)
-            self.this = Value(cast('uintptr_t', isolate) + 0x110)
+            self.this = Value(cast('uintptr_t', isolate) + 0x260)
         end,
         __base = _base_0,
         __name = "Undefined",
@@ -1082,9 +1087,9 @@ do
         __init = function(self, isolate, bool)
             self.this = Value(cast('uintptr_t', isolate) + ((function()
                 if bool then
-                    return 0x128
+                    return 0x278
                 else
-                    return 0x130
+                    return 0x280
                 end
             end)()))
         end,
@@ -1368,7 +1373,7 @@ do
     _base_0.__index = _base_0
     _class_0 = setmetatable({
         __init = function(self)
-            self.this = new('char[0x18]')
+            self.this = new('char[0x24]')
         end,
         __base = _base_0,
         __name = "HandleScope"
@@ -1411,7 +1416,7 @@ do
     _base_0.__index = _base_0
     _class_0 = setmetatable({
         __init = function(self)
-            self.this = new('char[0x30]')
+            self.this = new('char[0x48]')
         end,
         __base = _base_0,
         __name = "TryCatch"
@@ -1671,15 +1676,22 @@ panorama.type = function(t)
     end
     return type(t)
 end
+panorama.ref_cache = { }
 setmetatable(panorama, {
     __tostring = function(self)
         return ('luv8 panorama library v%.1f'):format(_INFO._VERSION)
     end,
     __index = function(self, key)
-        if panorama.hasPanel(key) then
-            return panorama.open(key)
+        local cachedKey = panorama.ref_cache[key]
+        if cachedKey ~= nil then
+            return cachedKey
         end
-        return panorama.open()[key]
+        if panorama.hasPanel(key) then
+            panorama.ref_cache[key] = panorama.open(key)
+            return panorama.ref_cache[key]
+        end
+        panorama.ref_cache[key] = panorama.open()[key]
+        return panorama.ref_cache[key]
     end
 })
 add_shutdown_callback(shutdown)
