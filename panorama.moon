@@ -724,7 +724,7 @@ setmetatable(panorama, {
         panorama.ref_cache[key] = panorama.open![key]
         panorama.ref_cache[key]
 })
---#pragma endregion panorma_functions
+--#pragma endregion panorama_functions
 
 add_shutdown_callback(shutdown)
 
