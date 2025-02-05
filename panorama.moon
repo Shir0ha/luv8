@@ -179,12 +179,12 @@ class DllImport
 
 --#pragma region native_panorama_functions
 UIEngine = vtable(vtable_bind('panorama.dll', 'PanoramaUIEngine001', 13, 'void*(__thiscall*)(void*)')!) -- :troll:
-nativeIsValidPanelPointer = UIEngine\get(32, 'bool(__thiscall*)(void*,void const*)')
-nativeCompileRunScript = UIEngine\get(81, 'void****(__thiscall*)(void*,void*,char const*,char const*,int)')
-nativeGetIsolate = UIEngine\get(96, 'void*(__thiscall*)(void*)')
-nativeHandleException = UIEngine\get(90, 'void(__thiscall*)(void*, void*, void*)')
+nativeIsValidPanelPointer = UIEngine\get(31, 'bool(__thiscall*)(void*,void const*)')
+nativeCompileRunScript = UIEngine\get(80, 'void****(__thiscall*)(void*,void*,char const*,char const*,int)')
+nativeGetIsolate = UIEngine\get(95, 'void*(__thiscall*)(void*)')
+nativeHandleException = UIEngine\get(89, 'void(__thiscall*)(void*, void*, void*)')
 nativeGetID = vtable_thunk(11, 'const char*(__thiscall*)(void*)')
-nativeGetPanelContext = UIEngine\get(89, 'void***(__thiscall*)(void*,void*)')
+nativeGetPanelContext = UIEngine\get(88, 'void***(__thiscall*)(void*,void*)')
 jsContexts = {}
 --#pragma endregion native_panorama_functions
 
