@@ -1,7 +1,7 @@
 local ffi = ffi or require('ffi')
 local _INFO, cast, typeof, new, string, metatype, find_pattern, create_interface, add_shutdown_callback, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, get_relative_call, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeCompileRunScript, nativeGetIsolate, nativeHandleException, nativeGetID, nativeGetPanelContext, jsContexts, v8_dll, pIsolate, persistentTbl, Message, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelArray
 _INFO = {
-    _VERSION = 1.999
+    _VERSION = 1.9999
 }
 setmetatable(_INFO, {
     __call = function(self)
@@ -273,12 +273,12 @@ do
     DllImport = _class_0
 end
 UIEngine = vtable(vtable_bind('panorama.dll', 'PanoramaUIEngine001', 13, 'void*(__thiscall*)(void*)')())
-nativeIsValidPanelPointer = UIEngine:get(32, 'bool(__thiscall*)(void*,void const*)')
-nativeCompileRunScript = UIEngine:get(81, 'void****(__thiscall*)(void*,void*,char const*,char const*,int)')
-nativeGetIsolate = UIEngine:get(96, 'void*(__thiscall*)(void*)')
-nativeHandleException = UIEngine:get(90, 'void(__thiscall*)(void*, void*, void*)')
+nativeIsValidPanelPointer = UIEngine:get(31, 'bool(__thiscall*)(void*,void const*)')
+nativeCompileRunScript = UIEngine:get(80, 'void****(__thiscall*)(void*,void*,char const*,char const*,int)')
+nativeGetIsolate = UIEngine:get(95, 'void*(__thiscall*)(void*)')
+nativeHandleException = UIEngine:get(89, 'void(__thiscall*)(void*, void*, void*)')
 nativeGetID = vtable_thunk(11, 'const char*(__thiscall*)(void*)')
-nativeGetPanelContext = UIEngine:get(89, 'void***(__thiscall*)(void*,void*)')
+nativeGetPanelContext = UIEngine:get(88, 'void***(__thiscall*)(void*,void*)')
 jsContexts = { }
 v8_dll = DllImport('v8.dll')
 pIsolate = nativeGetIsolate()

@@ -8,7 +8,7 @@
 ffi = ffi or require('ffi')
 local *
 
-_INFO = {_VERSION: 1.999}
+_INFO = {_VERSION: 1.9999}
 
 setmetatable(_INFO,{
     __call: => self._VERSION,
