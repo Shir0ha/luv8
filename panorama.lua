@@ -1,7 +1,7 @@
 local ffi = ffi or require('ffi')
-local _INFO, cast, typeof, new, string, metatype, find_pattern, create_interface, add_shutdown_callback, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, get_relative_call, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeCompileRunScript, nativeGetIsolate, nativeHandleException, nativeGetID, nativeGetPanelContext, jsContexts, v8_dll, pIsolate, persistentTbl, Message, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelArray
+local _INFO, cast, typeof, new, string, metatype, WRAPPER_TYPE, UNLOAD_WRAPPER, find_pattern, create_interface, safe_mode, ffiCEnabled, shutdown, _error, exception, exceptionCb, rawgetImpl, rawsetImpl, __thiscall, table_copy, vtable_bind, interface_ptr, vtable_entry, vtable_thunk, get_relative_call, proc_bind, follow_call, v8js_args, v8js_function, is_array, nullptr, intbuf, panorama, vtable, DllImport, UIEngine, nativeIsValidPanelPointer, nativeCompileRunScript, nativeGetIsolate, nativeHandleException, nativeGetID, nativeGetPanelContext, jsContexts, v8_dll, pIsolate, persistentTbl, Message, Local, MaybeLocal, PersistentProxy_mt, Persistent, Value, Object, Array, Function, FunctionTemplate, FunctionCallbackInfo, Primitive, Null, Undefined, Boolean, Number, Integer, String, Isolate, Context, HandleScope, TryCatch, Script, PanelInfo_t, CUtlVector_Constructor_t, panelArray
 _INFO = {
-    _VERSION = 1.9999
+    _VERSION = 2.0
 }
 setmetatable(_INFO, {
     __call = function(self)
@@ -12,14 +12,21 @@ setmetatable(_INFO, {
     end
 })
 cast, typeof, new, string, metatype = ffi.cast, ffi.typeof, ffi.new, ffi.string, ffi.metatype
+WRAPPER_TYPE = typeof([[    struct {
+        int8_t nRefCount;
+    }
+]])
+metatype(WRAPPER_TYPE, {
+    __gc = function(self)
+        return shutdown()
+    end
+})
+UNLOAD_WRAPPER = new(WRAPPER_TYPE)
 find_pattern = function()
     return error('Unsupported provider')
 end
 create_interface = function()
     return error('Unsupported provider')
-end
-add_shutdown_callback = function()
-    return print('WARNING: Cleanup before shutdown disabled')
 end
 local api
 while true do
@@ -41,7 +48,6 @@ if 'fa7ality' == _exp_0 then
         local res = cast('void*(__cdecl*)(const char*, int*)', fnptr)(interface_name, nil)
         return res ~= nil and res or nil
     end
-    add_shutdown_callback = function() end
 elseif 'aimware' == _exp_0 then
     find_pattern = function(module_name, pattern)
         local pat = _G.string.gsub(pattern, '?', '??')
@@ -144,8 +150,8 @@ proc_bind = (function()
         fnGetProcAddress = ffi.C.GetProcAddress
         fnGetModuleHandle = ffi.C.GetModuleHandleA
     else
-        fnGetProcAddress = cast('uintptr_t(__stdcall*)(uintptr_t, const char*)', cast('uintptr_t*', get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 48 85 C0 74 14 48 8B 0D ? ? ? ? 44')))[0])
-        fnGetModuleHandle = cast('uintptr_t(__stdcall*)(const char*)', cast('uintptr_t*', get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 33 F6 48 8B C8')))[0])
+        fnGetProcAddress = cast('uintptr_t(__stdcall*)(uintptr_t, const char*)', cast('uintptr_t*', get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 48 8D 15 ? ? ? ? 48 8B CB 48 89 05')))[0])
+        fnGetModuleHandle = cast('uintptr_t(__stdcall*)(const char*)', cast('uintptr_t*', get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 33 F6 BA')))[0])
     end
     return function(module_name, function_name, typedef)
         return cast(typeof(typedef), fnGetProcAddress(fnGetModuleHandle(module_name), function_name))
@@ -274,11 +280,11 @@ do
 end
 UIEngine = vtable(vtable_bind('panorama.dll', 'PanoramaUIEngine001', 13, 'void*(__thiscall*)(void*)')())
 nativeIsValidPanelPointer = UIEngine:get(31, 'bool(__thiscall*)(void*,void const*)')
-nativeCompileRunScript = UIEngine:get(80, 'void****(__thiscall*)(void*,void*,char const*,char const*,int)')
-nativeGetIsolate = UIEngine:get(95, 'void*(__thiscall*)(void*)')
-nativeHandleException = UIEngine:get(89, 'void(__thiscall*)(void*, void*, void*)')
-nativeGetID = vtable_thunk(11, 'const char*(__thiscall*)(void*)')
-nativeGetPanelContext = UIEngine:get(88, 'void***(__thiscall*)(void*,void*)')
+nativeCompileRunScript = UIEngine:get(77, 'void****(__thiscall*)(void*,void*,char const*,char const*,int)')
+nativeGetIsolate = UIEngine:get(92, 'void*(__thiscall*)(void*)')
+nativeHandleException = UIEngine:get(86, 'void(__thiscall*)(void*, void*, void*)')
+nativeGetID = vtable_thunk(10, 'const char*(__thiscall*)(void*)')
+nativeGetPanelContext = UIEngine:get(85, 'void***(__thiscall*)(void*,void*)')
 jsContexts = { }
 v8_dll = DllImport('v8.dll')
 pIsolate = nativeGetIsolate()
@@ -584,7 +590,6 @@ do
                     return Object:fromLua(pIsolate, val)
                 end
             elseif 'function' == _exp_1 then
-                error('passing a lua function is not supported right now, if you can fix it, feel free to submit a pr')
                 return FunctionTemplate(v8js_function(val)):getFunction()()
             else
                 return error('Failed to convert from lua to v8js: Unknown type')
@@ -868,7 +873,7 @@ do
     _base_0.__index = _base_0
     _class_0 = setmetatable({
         __init = function(self, callback)
-            self.this = MaybeLocal(v8_dll:get('?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PEAVIsolate@2@P6AXAEBV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@W4SideEffectType@2@PEBVCFunction@2@GGG@Z', 'void*(__cdecl*)(void*,void*,void*,void*,void*,int,int,int,int,uint16_t,uint16_t,uint16_t)')(intbuf, pIsolate, cast('void(__cdecl*)(void******)', callback), new('int[1]'), new('int[1]'), 0, 0, 0, 0, 0, 0, 0)):toLocalChecked()
+            self.this = MaybeLocal(v8_dll:get('?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PEAVIsolate@2@P6AXAEBV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@W4SideEffectType@2@PEBVCFunction@2@GGG@Z', 'void*(__fastcall*)(void*, void*, void*, void*, void*, int, int, int, int, uint16_t, uint16_t, uint16_t)')(intbuf, pIsolate, cast('void(__fastcall*)(void******)', callback), nullptr, nullptr, 0, 0, 0, 0, 0, 0, 0)):toLocalChecked()
         end,
         __base = _base_0,
         __name = "FunctionTemplate"
@@ -1512,28 +1517,27 @@ do
     Script = _class_0
 end
 PanelInfo_t = typeof([[    struct {
-        char* pad1[2];
+        int32_t nPrev;
+        uint32_t nNext;
+        char pad_0x8[0x8];
         void* m_pPanel;
-        void* unk1;
+        int32_t nIndex;
+        int32_t nSerial;
     }
 ]])
 CUtlVector_Constructor_t = typeof([[    struct {
-        struct {
-            $ *m_pMemory;
-            int m_nAllocationCount;
-            int m_nGrowSize;
-        } m_Memory;
         int m_Size;
-        $ *m_pElements;
+        int m_Capacity;
+        $* m_pMemory;
     }
-]], PanelInfo_t, PanelInfo_t)
+]], PanelInfo_t)
 metatype(CUtlVector_Constructor_t, {
     __index = {
         Count = function(self)
-            return self.m_Memory.m_nAllocationCount
+            return self.m_Size
         end,
         Element = function(self, i)
-            return cast(typeof('$&', PanelInfo_t), self.m_Memory.m_pMemory[i])
+            return cast(typeof('$&', PanelInfo_t), self.m_pMemory[i])
         end,
         RemoveAll = function(self)
             self = nil
@@ -1552,7 +1556,7 @@ metatype(CUtlVector_Constructor_t, {
         end
     end
 })
-panelArray = cast(typeof('$&', CUtlVector_Constructor_t), cast('uintptr_t', UIEngine:getInstance()) + 304)
+panelArray = cast(typeof('$&', CUtlVector_Constructor_t), cast('uintptr_t', UIEngine:getInstance()) + 0x270)
 panorama.hasPanel = function(panelName)
     for i, v in ipairs(panelArray) do
         local curPanelName = string(nativeGetID(v))
@@ -1583,7 +1587,7 @@ panorama.getPanel = function(panelName, fallback)
         if fallback ~= nil then
             pPanel = panorama.getPanel(fallback)
         else
-            error(('Failed to get target panel %s (EAX == 0)'):format(tostring(panelName)))
+            error(('undefined panel: %s'):format(tostring(panelName)))
         end
     end
     return pPanel
@@ -1626,6 +1630,7 @@ panorama.open = function(panel)
     if panel == nil then
         panel = 'CSGOHud'
     end
+    UNLOAD_WRAPPER.nRefCount = 0
     local fallback = 'CSGOJsRegistration'
     if panel == 'CSGOMainMenu' then
         fallback = 'CSGOHud'
@@ -1694,5 +1699,4 @@ setmetatable(panorama, {
         return panorama.ref_cache[key]
     end
 })
-add_shutdown_callback(shutdown)
 return panorama

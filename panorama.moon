@@ -8,7 +8,7 @@
 ffi = ffi or require('ffi')
 local *
 
-_INFO = {_VERSION: 1.9999}
+_INFO = {_VERSION: 2.0}
 
 setmetatable(_INFO,{
     __call: => self._VERSION,
@@ -17,10 +17,21 @@ setmetatable(_INFO,{
 
 import cast, typeof, new, string, metatype from ffi
 
+WRAPPER_TYPE = typeof([[
+    struct {
+        int8_t nRefCount;
+    }
+]])
+
+metatype(WRAPPER_TYPE, {
+    __gc: (self) -> shutdown()
+})
+
+UNLOAD_WRAPPER = new(WRAPPER_TYPE)
+
 --#pragma region compatibility_layer
 find_pattern = () -> error('Unsupported provider')
 create_interface = () -> error('Unsupported provider')
-add_shutdown_callback = () -> print('WARNING: Cleanup before shutdown disabled')
 
 local api
 while true
@@ -38,7 +49,6 @@ switch api
             if not fnptr then return nil
             res = cast('void*(__cdecl*)(const char*, int*)', fnptr)(interface_name, nil)
             res ~= nil and res or nil
-        add_shutdown_callback = () -> -- not needed
     when 'aimware'
         find_pattern = (module_name, pattern) ->
             pat = _G.string.gsub(pattern, '?', '??')
@@ -109,8 +119,8 @@ proc_bind = (() ->
         fnGetModuleHandle = ffi.C.GetModuleHandleA
     else
         --I know I can do this with utils.find_export on fatality lol
-        fnGetProcAddress = cast('uintptr_t(__stdcall*)(uintptr_t, const char*)', cast('uintptr_t*',get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 48 85 C0 74 14 48 8B 0D ? ? ? ? 44')))[0])
-        fnGetModuleHandle = cast('uintptr_t(__stdcall*)(const char*)', cast('uintptr_t*',get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 33 F6 48 8B C8')))[0])
+        fnGetProcAddress = cast('uintptr_t(__stdcall*)(uintptr_t, const char*)', cast('uintptr_t*',get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 48 8D 15 ? ? ? ? 48 8B CB 48 89 05')))[0])
+        fnGetModuleHandle = cast('uintptr_t(__stdcall*)(const char*)', cast('uintptr_t*',get_relative_call(find_pattern('engine2.dll', 'FF 15 ? ? ? ? 33 F6 BA')))[0])
     (module_name, function_name, typedef) ->
         cast(typeof(typedef), fnGetProcAddress(fnGetModuleHandle(module_name), function_name))
     )!
@@ -180,11 +190,11 @@ class DllImport
 --#pragma region native_panorama_functions
 UIEngine = vtable(vtable_bind('panorama.dll', 'PanoramaUIEngine001', 13, 'void*(__thiscall*)(void*)')!) -- :troll:
 nativeIsValidPanelPointer = UIEngine\get(31, 'bool(__thiscall*)(void*,void const*)')
-nativeCompileRunScript = UIEngine\get(80, 'void****(__thiscall*)(void*,void*,char const*,char const*,int)')
-nativeGetIsolate = UIEngine\get(95, 'void*(__thiscall*)(void*)')
-nativeHandleException = UIEngine\get(89, 'void(__thiscall*)(void*, void*, void*)')
-nativeGetID = vtable_thunk(11, 'const char*(__thiscall*)(void*)')
-nativeGetPanelContext = UIEngine\get(88, 'void***(__thiscall*)(void*,void*)')
+nativeCompileRunScript = UIEngine\get(77, 'void****(__thiscall*)(void*,void*,char const*,char const*,int)')
+nativeGetIsolate = UIEngine\get(92, 'void*(__thiscall*)(void*)')
+nativeHandleException = UIEngine\get(86, 'void(__thiscall*)(void*, void*, void*)')
+nativeGetID = vtable_thunk(10, 'const char*(__thiscall*)(void*)')
+nativeGetPanelContext = UIEngine\get(85, 'void***(__thiscall*)(void*,void*)')
 jsContexts = {}
 --#pragma endregion native_panorama_functions
 
@@ -337,7 +347,6 @@ class Value
                 else
                     return Object\fromLua(pIsolate,val)
             when 'function'
-                error('passing a lua function is not supported right now, if you can fix it, feel free to submit a pr')
                 return FunctionTemplate(v8js_function(val))\getFunction!!
             else
                 error('Failed to convert from lua to v8js: Unknown type')
@@ -427,7 +436,7 @@ class Function extends Object
 --to be honest this part is kinda messy, method names are confusing as fuck
 class FunctionTemplate
     new: (callback) =>
-        @this = MaybeLocal(v8_dll\get('?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PEAVIsolate@2@P6AXAEBV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@W4SideEffectType@2@PEBVCFunction@2@GGG@Z', 'void*(__cdecl*)(void*,void*,void*,void*,void*,int,int,int,int,uint16_t,uint16_t,uint16_t)')(intbuf,pIsolate,cast('void(__cdecl*)(void******)',callback),new('int[1]'),new('int[1]'),0,0,0,0,0,0,0))\toLocalChecked!
+        @this = MaybeLocal(v8_dll\get('?New@FunctionTemplate@v8@@SA?AV?$Local@VFunctionTemplate@v8@@@2@PEAVIsolate@2@P6AXAEBV?$FunctionCallbackInfo@VValue@v8@@@2@@ZV?$Local@VValue@v8@@@2@V?$Local@VSignature@v8@@@2@HW4ConstructorBehavior@2@W4SideEffectType@2@PEBVCFunction@2@GGG@Z', 'void*(__fastcall*)(void*, void*, void*, void*, void*, int, int, int, int, uint16_t, uint16_t, uint16_t)')(intbuf,pIsolate,cast('void(__fastcall*)(void******)',callback),nullptr,nullptr,0,0,0,0,0,0,0))\toLocalChecked!
     getFunction: () =>
         MaybeLocal(v8_dll\get('?GetFunction@FunctionTemplate@v8@@QEAA?AV?$MaybeLocal@VFunction@v8@@@2@V?$Local@VContext@v8@@@2@@Z', 'void*(__fastcall*)(void*, void*, void*)')(@this!\getInternal!, intbuf, nil))\toLocalChecked!
     getInstance: => @this!
@@ -588,28 +597,27 @@ class Script
 --#pragma region panorma_functions
 PanelInfo_t = typeof([[
     struct {
-        char* pad1[2];
+        int32_t nPrev;
+        uint32_t nNext;
+        char pad_0x8[0x8];
         void* m_pPanel;
-        void* unk1;
+        int32_t nIndex;
+        int32_t nSerial;
     }
 ]])
 
 CUtlVector_Constructor_t = typeof([[
     struct {
-        struct {
-            $ *m_pMemory;
-            int m_nAllocationCount;
-            int m_nGrowSize;
-        } m_Memory;
         int m_Size;
-        $ *m_pElements;
+        int m_Capacity;
+        $* m_pMemory;
     }
-]], PanelInfo_t, PanelInfo_t)
+]], PanelInfo_t)
 
 metatype(CUtlVector_Constructor_t, {
     __index: {
-        Count: => @m_Memory.m_nAllocationCount,
-        Element: (i) => cast(typeof('$&', PanelInfo_t), @m_Memory.m_pMemory[i])
+        Count: => @m_Size,
+        Element: (i) => cast(typeof('$&', PanelInfo_t), @m_pMemory[i])
         RemoveAll: =>
             @ = nil
             @ = typeof('$[?]', CUtlVector_Constructor_t)(1)[0]
@@ -625,7 +633,7 @@ metatype(CUtlVector_Constructor_t, {
                 current, pPanel
 })
 
-panelArray = cast(typeof('$&', CUtlVector_Constructor_t), cast('uintptr_t', UIEngine\getInstance!) + 304)
+panelArray = cast(typeof('$&', CUtlVector_Constructor_t), cast('uintptr_t', UIEngine\getInstance!) + 0x270)
 
 panorama.hasPanel = (panelName) ->
     for i, v in ipairs(panelArray) do
@@ -652,7 +660,7 @@ panorama.getPanel = (panelName, fallback) ->
         if fallback ~= nil then
             pPanel = panorama.getPanel(fallback)
         else
-            error('Failed to get target panel %s (EAX == 0)'\format(tostring(panelName)))
+            error('undefined panel: %s'\format(tostring(panelName)))
     pPanel
 
 panorama.getIsolate = () -> Isolate(nativeGetIsolate!)
@@ -670,6 +678,7 @@ panorama.loadrawstring = (jsCode, panel = 'CSGOHud') ->
 panorama.loadstring = (jsCode, panel = 'CSGOHud') -> panorama.loadrawstring('(()=>{%s})'\format(jsCode),panel)
 
 panorama.open = (panel = 'CSGOHud') ->
+    UNLOAD_WRAPPER.nRefCount = 0
     fallback = 'CSGOJsRegistration'
     if panel == 'CSGOMainMenu' then fallback = 'CSGOHud'
     if panel == 'CSGOHud' then fallback = 'CSGOMainMenu'
@@ -725,7 +734,5 @@ setmetatable(panorama, {
         panorama.ref_cache[key]
 })
 --#pragma endregion panorama_functions
-
-add_shutdown_callback(shutdown)
 
 panorama
